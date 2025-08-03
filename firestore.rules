@@ -1,13 +1,11 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to read and write their own profile document.
-    // The `userId` in the path must match the UID of the authenticated user.
     match /users/{userId} {
-      allow read, create, update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; // Disallow deleting profiles for now
+      // Allow any authenticated user to read the list of users for the discover page.
+      allow list, get: if request.auth != null;
+      // Allow users to create their own profile and update/delete it.
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
