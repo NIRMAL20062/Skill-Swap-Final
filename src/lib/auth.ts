@@ -1,3 +1,4 @@
+
 // src/lib/auth.ts
 "use client";
 
@@ -10,6 +11,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   sendEmailVerification,
+  sendPasswordResetEmail,
   type User,
 } from "firebase/auth";
 import { app } from "./firebase";
@@ -30,6 +32,10 @@ export const signInWithEmail = (email: string, password: string) => {
 const provider = new GoogleAuthProvider();
 export const signInWithGoogle = () => {
   return signInWithPopup(auth, provider);
+};
+
+export const sendPasswordReset = (email: string) => {
+  return sendPasswordResetEmail(auth, email);
 };
 
 export const signOut = () => {
