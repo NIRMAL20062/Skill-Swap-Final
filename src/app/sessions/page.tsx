@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History } from "lucide-react";
+import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History, Link as LinkIcon, Save } from "lucide-react";
 import Link from "next/link";
+import { Input } from "@/components/ui/input";
 
 export default function SessionsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -19,6 +20,7 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+  const [linkInputs, setLinkInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (authLoading) return;
@@ -48,14 +50,9 @@ export default function SessionsPage() {
 
   const handleResponse = async (sessionId: string, newStatus: 'accepted' | 'rejected') => {
     try {
-      // For now, let's add a placeholder meeting link on acceptance.
-      // In a real app, this would be generated via an API call.
-      const meetingLink = newStatus === 'accepted' ? 'https://meet.google.com/new' : undefined;
-
-      await updateSessionStatus(sessionId, newStatus, meetingLink);
-
+      await updateSessionStatus(sessionId, newStatus);
       setSessions(prevSessions =>
-        prevSessions.map(s => (s.id === sessionId ? { ...s, status: newStatus, meetingLink } : s))
+        prevSessions.map(s => (s.id === sessionId ? { ...s, status: newStatus } : s))
       );
       toast({
         title: "Success",
@@ -67,6 +64,23 @@ export default function SessionsPage() {
         description: "Failed to update session. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleSaveLink = async (sessionId: string) => {
+    const meetingLink = linkInputs[sessionId];
+    if (!meetingLink || !meetingLink.startsWith('https://meet.google.com/')) {
+        toast({ title: "Invalid Link", description: "Please provide a valid Google Meet link.", variant: "destructive" });
+        return;
+    }
+    try {
+        await updateSessionStatus(sessionId, 'accepted', meetingLink);
+        setSessions(prevSessions =>
+            prevSessions.map(s => (s.id === sessionId ? { ...s, meetingLink } : s))
+        );
+        toast({ title: "Success", description: "Meeting link saved!" });
+    } catch (error) {
+        toast({ title: "Error", description: "Failed to save the link. Please try again.", variant: "destructive"});
     }
   };
   
@@ -96,22 +110,41 @@ export default function SessionsPage() {
               </div>
             )}
 
-            {session.status === 'accepted' && (
+            {session.status === 'accepted' && !session.meetingLink && isMentor && (
+                <div className="space-y-3 p-4 border rounded-lg bg-secondary/20">
+                    <h4 className="font-semibold">Add Meeting Link</h4>
+                    <p className="text-sm text-muted-foreground">Generate a Google Meet link and paste it below for the mentee.</p>
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="Paste Google Meet link here..." 
+                            value={linkInputs[session.id] || ''}
+                            onChange={(e) => setLinkInputs(prev => ({ ...prev, [session.id]: e.target.value }))}
+                        />
+                         <Button onClick={() => handleSaveLink(session.id)}><Save className="mr-2 h-4 w-4"/> Save</Button>
+                    </div>
+                     <Button variant="outline" asChild>
+                        <Link href="https://meet.google.com/new" target="_blank"><LinkIcon className="mr-2 h-4 w-4"/> Generate Link</Link>
+                    </Button>
+                </div>
+            )}
+
+            {session.status === 'accepted' && session.meetingLink && (
                <div className="flex gap-2 items-center">
                  <Button variant="outline" disabled><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
-                 {session.meetingLink ? (
-                   <Button asChild>
+                 <Button asChild>
                     <Link href={session.meetingLink} target="_blank"><Video className="mr-2 h-4 w-4" /> Join Meet</Link>
-                   </Button>
-                 ) : (
-                    <Button disabled><Video className="mr-2 h-4 w-4" /> Awaiting Link</Button>
-                 )}
+                 </Button>
                </div>
             )}
+
+            {session.status === 'accepted' && !session.meetingLink && !isMentor && (
+                <p className="text-muted-foreground">Waiting for the mentor to provide a meeting link.</p>
+            )}
+
           </CardContent>
-          {session.status === 'completed' && (
+          {(session.status === 'completed' || session.status === 'rejected') && (
             <CardFooter>
-                 <p className="text-sm text-muted-foreground">This session is complete.</p>
+                 <p className="text-sm text-muted-foreground">This session is in your history.</p>
             </CardFooter>
           )}
         </Card>
@@ -123,7 +156,7 @@ export default function SessionsPage() {
   }
 
   const upcomingSessions = sessions.filter(s => s.status === 'pending' || s.status === 'accepted');
-  const completedSessions = sessions.filter(s => s.status === 'completed' || s.status === 'rejected');
+  const pastSessions = sessions.filter(s => s.status === 'completed' || s.status === 'rejected');
 
 
   return (
@@ -146,12 +179,15 @@ export default function SessionsPage() {
           {upcomingSessions.length > 0 ? (
             upcomingSessions.map(session => renderSessionCard(session))
           ) : (
-            <p className="text-muted-foreground text-center py-8">You have no upcoming sessions.</p>
+            <div className="text-center py-16 text-muted-foreground">
+                <p className="text-lg">You have no upcoming sessions.</p>
+                <p>Visit the <Link href="/discover" className="text-primary underline">Discover</Link> page to find a peer!</p>
+            </div>
           )}
         </TabsContent>
         <TabsContent value="history">
-          {completedSessions.length > 0 ? (
-            completedSessions.map(session => renderSessionCard(session))
+          {pastSessions.length > 0 ? (
+            pastSessions.map(session => renderSessionCard(session))
           ) : (
             <p className="text-muted-foreground text-center py-8">You have no past sessions.</p>
           )}
