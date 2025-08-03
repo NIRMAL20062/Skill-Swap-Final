@@ -18,6 +18,7 @@ export interface UserProfile {
   profileComplete?: boolean;
   rating?: number;
   reviewCount?: number;
+  totalRating?: number; // Sum of all ratings received
 }
 
 export interface Session {
@@ -60,6 +61,7 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
     profileComplete: false,
     rating: 0,
     reviewCount: 0,
+    totalRating: 0,
   }, { merge: true });
 };
 
@@ -199,3 +201,24 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     return reviews;
 }
 
+// New function for submitting a review
+export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
+    // This transaction will just write the review and update the session.
+    // The aggregation will be handled by a Cloud Function trigger.
+    const reviewCollection = collection(db, 'reviews');
+    const sessionRef = doc(db, 'sessions', reviewData.sessionId);
+    
+    return runTransaction(db, async (transaction) => {
+      // 1. Create the new review document
+      const newReviewRef = doc(reviewCollection); // auto-generate ID
+      transaction.set(newReviewRef, {
+        ...reviewData,
+        createdAt: serverTimestamp(),
+      });
+      
+      // 2. Mark the session as feedback submitted
+      transaction.update(sessionRef, { feedbackSubmitted: true });
+    });
+};
+
+    

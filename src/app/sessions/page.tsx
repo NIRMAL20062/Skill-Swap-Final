@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete } from "@/lib/firestore";
+import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete, submitReview } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,10 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { functions } from "@/lib/firebase";
-import { httpsCallable, HttpsCallableError } from "firebase/functions";
-
-const submitReviewFunction = httpsCallable(functions, 'submitReview');
 
 export default function SessionsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -122,26 +118,21 @@ export default function SessionsPage() {
     }
     setIsSubmittingFeedback(true);
     try {
-      const reviewData = {
+      await submitReview({
         sessionId: currentSessionForFeedback.id,
         mentorId: currentSessionForFeedback.mentorId,
         menteeId: currentSessionForFeedback.menteeId,
         menteeName: user.displayName || "Anonymous User",
         rating: rating,
         reviewText: reviewText,
-      };
-
-      await submitReviewFunction(reviewData);
+      });
 
       setSessions(prev => prev.map(s => s.id === currentSessionForFeedback.id ? {...s, feedbackSubmitted: true} : s));
       toast({ title: "Success", description: "Your feedback has been submitted!" });
       setFeedbackModalOpen(false);
     } catch (error: any) {
       console.error("Feedback submission failed:", error);
-      const errorMessage = error instanceof HttpsCallableError 
-        ? error.message 
-        : "An unexpected error occurred. Please try again.";
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      toast({ title: "Error", description: error.message || "An unexpected error occurred. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmittingFeedback(false);
     }

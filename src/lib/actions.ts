@@ -1,8 +1,3 @@
-
-'use server';
-
-// This file is intentionally left blank.
-// The server action has been replaced by a Firebase Cloud Function.
-// See /functions/src/index.ts for the new implementation.
-
-    
+// This file is not used in the new architecture.
+// The logic has been moved to a Firestore background trigger function.
+// See /functions/src/index.ts for the implementation.
