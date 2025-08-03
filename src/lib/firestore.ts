@@ -29,13 +29,18 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
 };
 
 // Function to get a user profile
-export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
+export const getUserProfile = async (uid:string): Promise<UserProfile | null> => {
   const userRef = doc(db, "users", uid);
   const docSnap = await getDoc(userRef);
 
   if (docSnap.exists()) {
     return docSnap.data() as UserProfile;
   } else {
+    // Check for profile data from before profile saving was implemented.
+    const a = await getDoc(doc(db, "user", uid));
+    if (a.exists()) {
+      return a.data() as UserProfile;
+    }
     return null;
   }
 };
@@ -44,7 +49,12 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", uid);
 
-  const { skillsToLearn, skillsToTeach, linkedinProfile } = data;
+  // First, get the existing profile to merge with new data
+  const existingProfile = await getUserProfile(uid);
+  const mergedData = { ...existingProfile, ...data };
+
+  const { skillsToLearn, skillsToTeach, linkedinProfile } = mergedData;
+
   const isComplete = 
     Array.isArray(skillsToLearn) && skillsToLearn.length > 0 &&
     Array.isArray(skillsToTeach) && skillsToTeach.length > 0 &&

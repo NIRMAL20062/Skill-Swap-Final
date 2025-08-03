@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Handshake } from "lucide-react";
-import { signInWithEmail, signInWithGoogle, auth } from "@/lib/auth";
+import { signInWithEmail, signInWithGoogle, useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 
@@ -26,16 +26,23 @@ const GoogleIcon = () => (
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signInWithEmail(email, password);
-      if (auth.currentUser && !auth.currentUser.emailVerified) {
+      const userCredential = await signInWithEmail(email, password);
+      if (userCredential.user && !userCredential.user.emailVerified) {
         toast({
             title: "Verification Pending",
             description: "Please check your email and verify your account before logging in.",
@@ -44,7 +51,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      router.push("/dashboard");
+      // Redirection is now handled by the useEffect hook
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -59,7 +66,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
-      router.push("/dashboard");
+      // Redirection is now handled by the useEffect hook
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -69,6 +76,10 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return <LoadingSpinner text="Authenticating..." />;
+  }
 
   if (isLoading) {
     return <LoadingSpinner text="Logging in..." />;
