@@ -3,22 +3,74 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper function to check if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to get a document's data
+    function getDoc(path) {
+      return get(path).data;
+    }
+
+    // Helper function to check if a user participated in a session
+    function isSessionParticipant(sessionId) {
+      let session = getDoc(/databases/$(database)/documents/sessions/$(sessionId));
+      return request.auth.uid == session.menteeId || request.auth.uid == session.mentorId;
+    }
+
+    // Helper function to validate review creation and related updates
+    function isValidReviewTransaction(reviewData) {
+      let session = getDoc(/databases/$(database)/documents/sessions/$(reviewData.sessionId));
+      let mentor = getDoc(/databases/$(database)/documents/users/$(reviewData.mentorId));
+
+      // 1. User must be the mentee of the session
+      let isMentee = request.auth.uid == session.menteeId;
+      // 2. Session must be marked as 'completed'
+      let isSessionCompleted = session.status == 'completed';
+      // 3. Feedback must not have been submitted already
+      let isFeedbackNew = session.feedbackSubmitted == false;
+      // 4. Rating must be between 1 and 5
+      let isRatingValid = reviewData.rating >= 1 && reviewData.rating <= 5;
+
+      // 5. Check the update to the mentor's profile
+      let newReviewCount = mentor.reviewCount + 1;
+      let newTotalRating = (mentor.rating * mentor.reviewCount) + reviewData.rating;
+      let newAverageRating = newTotalRating / newReviewCount;
+      
+      let requestMentorUpdate = request.resource.data.users[reviewData.mentorId];
+      let isMentorUpdateValid = requestMentorUpdate.rating == newAverageRating &&
+                                requestMentorUpdate.reviewCount == newReviewCount;
+
+      // 6. Check the update to the session
+      let requestSessionUpdate = request.resource.data.sessions[reviewData.sessionId];
+      let isSessionUpdateValid = requestSessionUpdate.feedbackSubmitted == true;
+
+      return isMentee && isSessionCompleted && isFeedbackNew && isRatingValid && isMentorUpdateValid && isSessionUpdateValid;
+    }
+
     match /users/{userId} {
-      allow read;
-      allow update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
+      // Users can read their own profile
+      // Users can update their own profile
+      // A mentor's rating can be updated as part of a review transaction (checked in transaction rule)
+      allow read, write: if request.auth.uid == userId;
     }
 
     match /sessions/{sessionId} {
-      allow read, write: if request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId;
-      allow create: if request.auth.uid == request.resource.data.menteeId;
+      // Users can read sessions they are a part of
+      allow read: if isAuthenticated() && isSessionParticipant(sessionId);
+      
+      // Users can update sessions they are a part of (e.g., to accept, reject, or mark as complete)
+      // The feedback submission update is handled in the transaction rule
+      allow write: if isAuthenticated() && isSessionParticipant(sessionId);
     }
-    
-    match /reviews/{reviewId} {
-      allow create: if get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.menteeId == request.auth.uid
-                    && getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.feedbackSubmitted == true;
 
-      allow read: if request.auth.uid == resource.data.mentorId;
+    match /reviews/{reviewId} {
+      allow read: if true; // Reviews can be public
+      
+      // This rule is specifically for the client-side transaction.
+      // It uses a transactional write which checks multiple documents at once.
+      allow write: if isAuthenticated() && isValidReviewTransaction(request.resource.data.reviews[reviewId]);
     }
   }
 }
