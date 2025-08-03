@@ -36,11 +36,6 @@ export const getUserProfile = async (uid:string): Promise<UserProfile | null> =>
   if (docSnap.exists()) {
     return docSnap.data() as UserProfile;
   } else {
-    // Check for profile data from before profile saving was implemented.
-    const a = await getDoc(doc(db, "user", uid));
-    if (a.exists()) {
-      return a.data() as UserProfile;
-    }
     return null;
   }
 };
