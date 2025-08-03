@@ -31,7 +31,7 @@ export default function Header() {
           <nav className="flex items-center space-x-6 text-sm font-medium">
             {navLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.label}
                 href={link.href}
                 className="transition-colors hover:text-foreground/80 text-foreground/60"
               >
@@ -62,7 +62,7 @@ export default function Header() {
             <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
               <div className="flex flex-col space-y-3">
                 {navLinks.map((link) => (
-                  <SheetClose asChild key={link.href}>
+                  <SheetClose asChild key={link.label}>
                     <Link
                       href={link.href}
                       className="text-foreground/70 transition-colors hover:text-foreground"
