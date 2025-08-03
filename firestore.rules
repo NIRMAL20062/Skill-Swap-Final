@@ -3,25 +3,35 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read and write to their own profile.
-    // Any authenticated user can read all profiles (for discover page).
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create, update: if request.auth.uid == userId;
+
+    // Helper function to check if a user is the mentor or mentee of a session
+    function isSessionParticipant(sessionId, userId) {
+      let session = get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+      return userId == session.menteeId || userId == session.mentorId;
     }
-    
-    // Sessions can only be read or modified by the mentee or mentor.
+
+    // Users can only update their own profile, but anyone can read public profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth.uid == userId;
+
+      // Allow a mentee to update a mentor's rating as part of a review submission
+      allow update: if request.auth.uid != userId &&
+                      request.resource.data.keys().hasAll(['rating', 'reviewCount']) &&
+                      request.resource.data.keys().size() == 2;
+    }
+
+    // Mentors/Mentees can manage their sessions
     match /sessions/{sessionId} {
-      allow read, update: if request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId;
+      allow read, update: if isSessionParticipant(sessionId, request.auth.uid);
       allow create: if request.auth.uid == request.resource.data.menteeId;
     }
 
-    // Reviews can be created by the mentee of the session.
-    // Everyone can read reviews.
-    // No one can update or delete a review.
+    // Only the mentee of a completed session can create a review for it. Reviews are immutable.
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if request.auth.uid == request.resource.data.menteeId;
+      allow create: if get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.menteeId == request.auth.uid &&
+                     get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'completed';
       allow update, delete: if false;
     }
   }
