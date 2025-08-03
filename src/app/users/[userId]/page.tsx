@@ -24,18 +24,27 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 
-function ReviewStars({ rating }: { rating: number }) {
+function ReviewStars({ rating, className }: { rating: number, className?: string }) {
   const totalStars = 5;
+  const fullStars = Math.floor(rating);
+  const partialStar = rating - fullStars;
+  const emptyStars = totalStars - Math.ceil(rating);
+
   return (
-    <div className="flex items-center">
-      {[...Array(totalStars)].map((_, i) => (
-        <Star
-          key={i}
-          className={cn(
-            "h-5 w-5",
-            i < Math.round(rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-          )}
-        />
+    <div className={cn("flex items-center", className)}>
+      {[...Array(fullStars)].map((_, i) => (
+        <Star key={`full-${i}`} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+      ))}
+      {partialStar > 0 && (
+         <div className="relative">
+            <Star key="partial" className="h-5 w-5 text-yellow-400" />
+            <div className="absolute top-0 left-0 overflow-hidden" style={{ width: `${partialStar * 100}%` }}>
+                <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+            </div>
+        </div>
+      )}
+      {[...Array(emptyStars)].map((_, i) => (
+        <Star key={`empty-${i}`} className="h-5 w-5 text-gray-300" />
       ))}
     </div>
   );
@@ -151,6 +160,8 @@ export default function UserProfilePage() {
 
   const initial = profile.displayName ? profile.displayName.charAt(0).toUpperCase() : 'S';
   const isOwnProfile = currentUser?.uid === profile.uid;
+  const rating = profile.rating ?? 0;
+  const reviewCount = profile.reviewCount ?? 0;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -167,12 +178,16 @@ export default function UserProfilePage() {
           </Avatar>
           <div className="flex-1">
             <CardTitle className="font-headline text-4xl mb-2">{profile.displayName}</CardTitle>
-            <div className="flex items-center gap-4 text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                <span className="font-semibold">{profile.rating?.toFixed(1) ?? 'N/A'}</span>
-                <span>({reviews.length ?? 0} reviews)</span>
-              </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+                {reviewCount > 0 ? (
+                    <>
+                        <ReviewStars rating={rating} />
+                        <span className="font-semibold">{rating.toFixed(1)}</span>
+                        <span>({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
+                    </>
+                ) : (
+                    <span className="text-muted-foreground">No reviews yet</span>
+                )}
             </div>
             <div className="flex gap-2 mt-4">
               {profile.linkedinProfile && (

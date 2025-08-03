@@ -8,10 +8,38 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Star } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface UserCardProps {
   user: UserProfile;
 }
+
+function ReviewStars({ rating, className }: { rating: number, className?: string }) {
+  const totalStars = 5;
+  const fullStars = Math.floor(rating);
+  const partialStar = rating - fullStars;
+  const emptyStars = totalStars - Math.ceil(rating);
+
+  return (
+    <div className={cn("flex items-center", className)}>
+      {[...Array(fullStars)].map((_, i) => (
+        <Star key={`full-${i}`} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+      ))}
+      {partialStar > 0 && (
+         <div className="relative">
+            <Star key="partial" className="h-5 w-5 text-yellow-400" />
+            <div className="absolute top-0 left-0 overflow-hidden" style={{ width: `${partialStar * 100}%` }}>
+                <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+            </div>
+        </div>
+      )}
+      {[...Array(emptyStars)].map((_, i) => (
+        <Star key={`empty-${i}`} className="h-5 w-5 text-gray-300" />
+      ))}
+    </div>
+  );
+}
+
 
 export function UserCard({ user }: UserCardProps) {
   const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : "S";
@@ -27,9 +55,16 @@ export function UserCard({ user }: UserCardProps) {
         </Avatar>
         <div className="flex-1">
           <h3 className="font-headline text-xl font-semibold leading-tight">{user.displayName}</h3>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
-            <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span>{rating > 0 ? rating.toFixed(1) : 'N/A'} ({reviewCount} reviews)</span>
+           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+            {reviewCount > 0 ? (
+                <>
+                    <ReviewStars rating={rating} />
+                    <span className="font-semibold">{rating.toFixed(1)}</span>
+                    <span>({reviewCount})</span>
+                </>
+            ) : (
+                <span>No reviews yet</span>
+            )}
           </div>
         </div>
       </CardHeader>
