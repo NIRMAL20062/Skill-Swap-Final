@@ -1,3 +1,4 @@
+
 // src/lib/auth.ts
 "use client";
 
@@ -12,17 +13,20 @@ import {
   sendEmailVerification,
   sendPasswordResetEmail,
   type User,
-  linkWithCredential,
-  EmailAuthProvider,
-  fetchSignInMethodsForEmail,
 } from "firebase/auth";
 import { app } from "./firebase";
 import { useState, useEffect } from "react";
 import { createUserProfile, getUserProfile } from "./firestore";
+import { FirebaseError } from "firebase/app";
 
 export const auth = getAuth(app);
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const existingMethods = await fetchSignInMethodsForEmail(auth, email);
+  if (existingMethods.length > 0) {
+    throw new FirebaseError('auth/email-already-in-use', 'This email is already associated with an account. Please log in.');
+  }
+  
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(userCredential.user);
   await createUserProfile(userCredential.user.uid, {
@@ -41,13 +45,11 @@ export const signInWithGoogle = async () => {
   const result = await signInWithPopup(auth, provider);
   const user = result.user;
   
-  // Check if the user already exists in Firestore
   const profile = await getUserProfile(user.uid);
   if (!profile) {
-    // New user, create a profile
     await createUserProfile(user.uid, {
       email: user.email!,
-      displayName: user.displayName || 'Google User',
+      displayName: user.displayName || 'New User',
     });
   }
   return result;

@@ -42,7 +42,6 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmail(email, password);
-      // Check if email is verified
       if (userCredential.user && !userCredential.user.emailVerified) {
         toast({
             title: "Verification Pending",
@@ -52,7 +51,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      // Redirection is handled by the useEffect hook
+      // Redirection is handled by the useEffect hook above
     } catch (error: any) {
       toast({
         title: "Login Failed",

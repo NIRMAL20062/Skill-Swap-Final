@@ -17,10 +17,8 @@ import {
   Trophy,
   User,
   Wallet,
-  AlertCircle
 } from "lucide-react";
 import AiSkillSuggestion from "@/components/features/ai-skill-suggestion";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { getUserProfile, UserProfile } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
@@ -71,25 +69,28 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push("/login");
-      } else {
-        setLoading(true);
-        getUserProfile(user.uid).then((userProfile) => {
-          if (userProfile && !userProfile.profileComplete) {
-            router.push("/complete-profile");
-          } else {
-            setProfile(userProfile);
-            setLoading(false);
-          }
-        });
-      }
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
     }
+
+    setLoading(true);
+    getUserProfile(user.uid).then((userProfile) => {
+      if (userProfile && userProfile.profileComplete) {
+        setProfile(userProfile);
+        setLoading(false);
+      } else {
+        router.push("/complete-profile");
+      }
+    }).catch(() => {
+        router.push("/login");
+    });
+
   }, [authLoading, user, router]);
   
 
-  if (loading || !user || !profile) {
+  if (loading || authLoading || !profile) {
      return <LoadingSpinner text="Loading Dashboard..." />;
   }
 
@@ -97,7 +98,7 @@ export default function DashboardPage() {
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-headline font-bold mb-2">
-          Welcome to Your Dashboard
+          Welcome to Your Dashboard, {profile.displayName}!
         </h1>
         <p className="text-lg text-muted-foreground">
           Here's your command center for swapping skills and tracking progress.

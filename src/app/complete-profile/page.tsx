@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { getUserProfile, updateUserProfile, UserProfile } from "@/lib/firestore";
@@ -9,14 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import LoadingSpinner from "@/components/layout/loading-spinner";
-import { User, Github, Linkedin, Code } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { User, Github, Linkedin, Code, Lightbulb, GraduationCap } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 const profileSchema = z.object({
   displayName: z.string().min(2, "Name must be at least 2 characters."),
@@ -29,17 +30,27 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+const steps = [
+  { id: "displayName", title: "What's your name?", description: "Let's start with the basics.", icon: <User />, fields: ["displayName"] },
+  { id: "skillsToTeach", title: "What skills can you teach?", description: "List your areas of expertise. Separate skills with a comma.", icon: <GraduationCap />, fields: ["skillsToTeach"] },
+  { id: "skillsToLearn", title: "What do you want to learn?", description: "What skills are you eager to acquire? Separate skills with a comma.", icon: <Lightbulb />, fields: ["skillsToLearn"] },
+  { id: "linkedinProfile", title: "Your LinkedIn Profile", description: "This is required to help build trust in the community.", icon: <Linkedin />, fields: ["linkedinProfile"] },
+  { id: "socialProfiles", title: "Optional: Other Profiles", description: "Link your other professional profiles to showcase your work.", icon: <Code />, fields: ["githubProfile", "leetcodeProfile"] },
+];
+
 export default function CompleteProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [profileLoading, setProfileLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      displayName: user?.displayName || "",
+      displayName: "",
       skillsToTeach: "",
       skillsToLearn: "",
       linkedinProfile: "",
@@ -48,12 +59,11 @@ export default function CompleteProfilePage() {
     },
   });
 
-   useEffect(() => {
+  useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [authLoading, user, router]);
-
 
   useEffect(() => {
     async function fetchProfile() {
@@ -76,6 +86,24 @@ export default function CompleteProfilePage() {
     fetchProfile();
   }, [user, form]);
 
+  const nextStep = async () => {
+    const fields = steps[currentStep].fields;
+    const isValid = await form.trigger(fields as FieldPath<ProfileFormValues>[]);
+    if (!isValid) return;
+
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(step => step + 1);
+    } else {
+      await form.handleSubmit(onSubmit)();
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(step => step - 1);
+    }
+  };
+
   async function onSubmit(data: ProfileFormValues) {
     if (!user) return;
     setIsSaving(true);
@@ -95,7 +123,9 @@ export default function CompleteProfilePage() {
         title: "Profile Complete!",
         description: "Your profile has been saved. Welcome!",
       });
-      router.push('/dashboard');
+      startTransition(() => {
+        router.push('/dashboard');
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -107,141 +137,117 @@ export default function CompleteProfilePage() {
     }
   }
 
-  const loading = authLoading || profileLoading;
+  const loading = authLoading || profileLoading || isSaving || isPending;
+  const progress = ((currentStep + 1) / steps.length) * 100;
 
   if (loading) {
-    return (
-       <div className="container mx-auto px-4 py-8 md:py-12">
-        <Card className="max-w-3xl mx-auto">
-          <CardHeader>
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-full max-w-sm mt-2" />
-          </CardHeader>
-          <CardContent className="space-y-8">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-32 ml-auto" />
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <LoadingSpinner text={isSaving ? "Saving..." : "Loading..."} />;
   }
-
+  
   return (
-    <div className="container mx-auto px-4 py-8 md:py-12">
-      {isSaving && <LoadingSpinner text="Saving..." />}
-      <Card className="max-w-3xl mx-auto">
+    <div className="container mx-auto px-4 py-8 md:py-12 flex items-center justify-center min-h-[calc(100vh-8rem)]">
+      <Card className="w-full max-w-2xl">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <User className="w-8 h-8 text-primary" />
-            <div>
-              <CardTitle className="font-headline text-3xl">Complete Your Profile</CardTitle>
-              <CardDescription>Welcome to SkillSwap! Let's get your profile set up so you can start connecting.</CardDescription>
-            </div>
-          </div>
+          <CardTitle className="font-headline text-2xl text-center">Complete Your Profile</CardTitle>
+          <CardDescription className="text-center">
+            Let's get you set up to start swapping skills.
+          </CardDescription>
+          <Progress value={progress} className="w-full mt-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-hidden relative min-h-[300px]">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <FormField
-                control={form.control}
-                name="displayName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Jane Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="skillsToTeach"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Skills You Can Teach</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., React, Python, UI Design" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Separate skills with a comma. This is required.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="skillsToLearn"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Skills You Want to Learn</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Go, Figma, Project Management" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Separate skills with a comma. This is required.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Social Profiles</h3>
-                <FormField
-                  control={form.control}
-                  name="linkedinProfile"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2"><Linkedin /> LinkedIn Profile URL *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://linkedin.com/in/yourprofile" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="githubProfile"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2"><Github /> GitHub Profile URL (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://github.com/yourusername" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="leetcodeProfile"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center gap-2"><Code /> LeetCode Profile URL (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://leetcode.com/yourusername" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+            <form onSubmit={(e) => e.preventDefault()}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-8"
+                >
+                  <div className="text-center mb-8">
+                      <div className="flex items-center justify-center gap-3">
+                         <div className="p-3 bg-secondary rounded-lg text-secondary-foreground">{steps[currentStep].icon}</div>
+                         <div>
+                            <h2 className="text-xl font-semibold font-headline">{steps[currentStep].title}</h2>
+                            <p className="text-muted-foreground">{steps[currentStep].description}</p>
+                        </div>
+                      </div>
+                  </div>
 
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save and Continue"}
-              </Button>
+                  {currentStep === 0 && (
+                    <FormField control={form.control} name="displayName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl><Input placeholder="e.g., Jane Doe" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}/>
+                  )}
+
+                  {currentStep === 1 && (
+                    <FormField control={form.control} name="skillsToTeach" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Skills You Can Teach</FormLabel>
+                        <FormControl><Input placeholder="e.g., React, Python, UI Design" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}/>
+                  )}
+
+                  {currentStep === 2 && (
+                     <FormField control={form.control} name="skillsToLearn" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Skills You Want to Learn</FormLabel>
+                        <FormControl><Input placeholder="e.g., Go, Figma, Project Management" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}/>
+                  )}
+
+                   {currentStep === 3 && (
+                     <FormField control={form.control} name="linkedinProfile" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2"><Linkedin size={16}/> LinkedIn Profile URL *</FormLabel>
+                          <FormControl><Input placeholder="https://linkedin.com/in/yourprofile" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                  )}
+                  
+                  {currentStep === 4 && (
+                    <div className="space-y-4">
+                       <FormField control={form.control} name="githubProfile" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2"><Github size={16}/> GitHub Profile URL (Optional)</FormLabel>
+                          <FormControl><Input placeholder="https://github.com/yourusername" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                       <FormField control={form.control} name="leetcodeProfile" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center gap-2"><Code size={16}/> LeetCode Profile URL (Optional)</FormLabel>
+                          <FormControl><Input placeholder="https://leetcode.com/yourusername" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}/>
+                    </div>
+                  )}
+
+                </motion.div>
+              </AnimatePresence>
             </form>
           </Form>
         </CardContent>
+        <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={prevStep} disabled={currentStep === 0}>
+              Back
+            </Button>
+            <Button onClick={nextStep}>
+              {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+            </Button>
+        </CardFooter>
       </Card>
     </div>
   );
