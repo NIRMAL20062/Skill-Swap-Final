@@ -210,7 +210,7 @@ export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>)
   
   return runTransaction(db, async (transaction) => {
     // 1. Create the new review document. The background function will pick this up.
-    const newReviewRef = doc(reviewCollection); // auto-generate ID
+    const newReviewRef = doc(collection(db, 'reviews')); // auto-generate ID
     transaction.set(newReviewRef, {
       ...reviewData,
       createdAt: serverTimestamp(),
