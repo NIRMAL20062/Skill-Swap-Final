@@ -42,6 +42,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmail(email, password);
+      // Check if email is verified
       if (userCredential.user && !userCredential.user.emailVerified) {
         toast({
             title: "Verification Pending",
@@ -81,9 +82,11 @@ export default function LoginPage() {
     return <LoadingSpinner text="Authenticating..." />;
   }
 
-  if (isLoading) {
-    return <LoadingSpinner text="Logging in..." />;
+  // Prevent rendering login form if user is logged in and waiting for redirect
+  if (user) {
+    return <LoadingSpinner text="Redirecting..." />;
   }
+
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900/10 py-12 px-4">
@@ -130,7 +133,7 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                Login
+                {isLoading ? "Logging in..." : "Login"}
               </Button>
             </div>
           </form>
