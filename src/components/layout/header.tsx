@@ -24,12 +24,18 @@ import {
 import { useEffect, useState } from "react";
 
 
-const navLinks = [
+const baseNavLinks = [
+    { href: "/discover", label: "Discover" },
+    { href: "#", label: "Help" },
+];
+
+const authNavLinks = [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/discover", label: "Discover" },
     { href: "/sessions", label: "Manage Sessions" },
     { href: "#", label: "Help" },
 ];
+
 
 export default function Header() {
   const { user, loading } = useAuth();
@@ -46,28 +52,31 @@ export default function Header() {
   };
   
   const logoHref = user ? "/dashboard" : "/";
+  const navLinks = user ? authNavLinks : baseNavLinks;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-4 hidden md:flex">
-          <Link href={logoHref} className="mr-6 flex items-center space-x-2">
+          <Link href={isClient ? logoHref : "/"} className="mr-6 flex items-center space-x-2">
             <Handshake className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block font-headline">
               SkillSwap
             </span>
           </Link>
-          <nav className="flex items-center space-x-6 text-sm font-medium">
-            {navLinks.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          {isClient && (
+            <nav className="flex items-center space-x-6 text-sm font-medium">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="transition-colors hover:text-foreground/80 text-foreground/60"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          )}
         </div>
 
         <Sheet>
@@ -82,7 +91,7 @@ export default function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="pr-0">
             <Link
-              href={logoHref}
+              href={isClient ? logoHref : "/"}
               className="flex items-center"
             >
               <Handshake className="mr-2 h-6 w-6 text-primary" />
@@ -105,7 +114,7 @@ export default function Header() {
           </SheetContent>
         </Sheet>
         <Link
-          href={logoHref}
+          href={isClient ? logoHref : "/"}
           className="flex items-center space-x-2 md:hidden mr-auto"
         >
           <Handshake className="h-6 w-6 text-primary" />
