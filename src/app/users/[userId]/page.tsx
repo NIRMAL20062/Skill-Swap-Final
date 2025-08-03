@@ -171,7 +171,7 @@ export default function UserProfilePage() {
               <div className="flex items-center gap-1">
                 <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
                 <span className="font-semibold">{profile.rating?.toFixed(1) ?? 'N/A'}</span>
-                <span>({profile.reviewCount ?? 0} reviews)</span>
+                <span>({reviews.length ?? 0} reviews)</span>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
