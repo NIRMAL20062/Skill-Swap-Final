@@ -40,10 +40,10 @@ const authNavLinks = [
 export default function Header() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setIsMounted(true);
   }, []);
 
   const handleSignOut = async () => {
@@ -53,6 +53,10 @@ export default function Header() {
   
   const navLinks = user ? authNavLinks : baseNavLinks;
   const logoHref = user ? "/dashboard" : "/";
+  
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -64,19 +68,17 @@ export default function Header() {
               SkillSwap
             </span>
           </Link>
-          {isClient && (
-            <nav className="flex items-center space-x-6 text-sm font-medium">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="transition-colors hover:text-foreground/80 text-foreground/60"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          )}
+          <nav className="flex items-center space-x-6 text-sm font-medium">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className="transition-colors hover:text-foreground/80 text-foreground/60"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
         </div>
 
         <Sheet>
@@ -99,22 +101,20 @@ export default function Header() {
                 <span className="font-bold font-headline">SkillSwap</span>
               </Link>
             </SheetClose>
-            {isClient && (
-              <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
-                <div className="flex flex-col space-y-3">
-                  {navLinks.map((link) => (
-                    <SheetClose asChild key={link.label}>
-                      <Link
-                        href={link.href}
-                        className="text-foreground/70 transition-colors hover:text-foreground"
-                      >
-                        {link.label}
-                      </Link>
-                    </SheetClose>
-                  ))}
-                </div>
+            <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
+              <div className="flex flex-col space-y-3">
+                {navLinks.map((link) => (
+                  <SheetClose asChild key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="text-foreground/70 transition-colors hover:text-foreground"
+                    >
+                      {link.label}
+                    </Link>
+                  </SheetClose>
+                ))}
               </div>
-            )}
+            </div>
           </SheetContent>
         </Sheet>
         <Link
@@ -126,7 +126,7 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-1 items-center justify-end space-x-4">
-            {isClient && !loading && (
+            {!loading && (
                 user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
