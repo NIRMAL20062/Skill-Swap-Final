@@ -187,51 +187,6 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
     });
 };
 
-export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
-    const mentorRef = doc(db, "users", review.mentorId);
-    const reviewCollection = collection(db, "reviews");
-    const newReviewRef = doc(reviewCollection);
-    const sessionRef = doc(db, "sessions", review.sessionId);
-
-    return runTransaction(db, async (transaction) => {
-        const mentorDoc = await transaction.get(mentorRef);
-        const sessionDoc = await transaction.get(sessionRef);
-
-        if (!mentorDoc.exists()) {
-            throw new Error("Mentor not found.");
-        }
-        if (!sessionDoc.exists()) {
-            throw new Error("Session not found.");
-        }
-        
-        const sessionData = sessionDoc.data();
-        if (sessionData?.feedbackSubmitted) {
-            throw new Error("Feedback has already been submitted for this session.");
-        }
-
-        const mentorData = mentorDoc.data() as UserProfile;
-
-        // Calculate new average rating
-        const currentRating = mentorData.rating || 0;
-        const reviewCount = mentorData.reviewCount || 0;
-        const newReviewCount = reviewCount + 1;
-        const newTotalRating = (currentRating * reviewCount) + review.rating;
-        const newAverageRating = newTotalRating / newReviewCount;
-
-        // Update mentor's profile with new rating
-        transaction.update(mentorRef, { 
-            rating: newAverageRating,
-            reviewCount: newReviewCount 
-        });
-
-        // Save the new review
-        transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
-
-        // Mark that feedback has been submitted on the session
-        transaction.update(sessionRef, { feedbackSubmitted: true });
-    });
-}
-
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     const reviewsCollection = collection(db, 'reviews');
     const q = query(reviewsCollection, where('mentorId', '==', userId));

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete, submitReviewAndUpdateRating } from "@/lib/firestore";
+import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FirebaseError } from "firebase/app";
+import { functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
+
+const submitReviewFunction = httpsCallable(functions, 'submitReview');
 
 export default function SessionsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -119,27 +122,23 @@ export default function SessionsPage() {
     }
     setIsSubmittingFeedback(true);
     try {
-      await submitReviewAndUpdateRating({
+      const reviewData = {
         sessionId: currentSessionForFeedback.id,
         mentorId: currentSessionForFeedback.mentorId,
         menteeId: currentSessionForFeedback.menteeId,
         menteeName: user.displayName || "Anonymous User",
         rating: rating,
         reviewText: reviewText,
-      });
+      };
+
+      await submitReviewFunction(reviewData);
 
       setSessions(prev => prev.map(s => s.id === currentSessionForFeedback.id ? {...s, feedbackSubmitted: true} : s));
       toast({ title: "Success", description: "Your feedback has been submitted!" });
       setFeedbackModalOpen(false);
     } catch (error: any) {
       console.error("Feedback submission failed:", error);
-      let errorMessage = "Failed to submit feedback. Please try again.";
-      if (error instanceof FirebaseError) {
-          if (error.code === 'permission-denied') {
-              errorMessage = "You do not have permission to perform this action. Please check your security rules.";
-          }
-      }
-      toast({ title: "Error", description: errorMessage, variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to submit feedback. Please try again.", variant: "destructive" });
     } finally {
       setIsSubmittingFeedback(false);
     }
