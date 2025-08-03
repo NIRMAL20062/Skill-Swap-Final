@@ -22,6 +22,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -36,7 +37,7 @@ export default function UserProfilePage() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedTime, setSelectedTime] = useState("10:00");
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
@@ -72,6 +73,12 @@ export default function UserProfilePage() {
     setIsBooking(true);
     try {
       const [hours, minutes] = selectedTime.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+          toast({ title: "Invalid Time", description: "Please enter a valid time in HH:MM format.", variant: "destructive" });
+          setIsBooking(false);
+          return;
+      }
+        
       const combinedDateTime = new Date(selectedDate);
       combinedDateTime.setHours(hours, minutes);
 
@@ -119,14 +126,6 @@ export default function UserProfilePage() {
 
   const initial = profile.displayName ? profile.displayName.charAt(0).toUpperCase() : 'S';
   const isOwnProfile = currentUser?.uid === profile.uid;
-
-  const timeSlots = Array.from({ length: 12 * 2 }, (_, i) => {
-    const hour = Math.floor(i / 2) + 8; // From 8 AM
-    const minute = (i % 2) * 30;
-    const formattedHour = hour.toString().padStart(2, '0');
-    const formattedMinute = minute.toString().padStart(2, '0');
-    return `${formattedHour}:${formattedMinute}`;
-  });
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -227,16 +226,13 @@ export default function UserProfilePage() {
                     <Label htmlFor="time" className="text-right">
                       Time
                     </Label>
-                     <Select onValueChange={setSelectedTime}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select a time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {timeSlots.map(time => (
-                          <SelectItem key={time} value={time}>{time}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                     <Input
+                        id="time"
+                        type="time"
+                        value={selectedTime}
+                        onChange={(e) => setSelectedTime(e.target.value)}
+                        className="col-span-3"
+                      />
                   </div>
                 </div>
                 <DialogFooter>

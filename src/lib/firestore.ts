@@ -125,10 +125,14 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
 
 
 // Function to update a session's status
-export const updateSessionStatus = async (sessionId: string, status: Session['status']) => {
+export const updateSessionStatus = async (sessionId: string, status: Session['status'], meetingLink?: string) => {
     const sessionRef = doc(db, 'sessions', sessionId);
-    return updateDoc(sessionRef, {
+    const updateData: any = {
         status,
         updatedAt: serverTimestamp(),
-    });
+    };
+    if (meetingLink) {
+        updateData.meetingLink = meetingLink;
+    }
+    return updateDoc(sessionRef, updateData);
 };

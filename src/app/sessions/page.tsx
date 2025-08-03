@@ -5,12 +5,13 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { getUserSessions, Session, updateSessionStatus } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Clock, Check, X, MessageSquare, Video } from "lucide-react";
+import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History } from "lucide-react";
+import Link from "next/link";
 
 export default function SessionsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -47,9 +48,14 @@ export default function SessionsPage() {
 
   const handleResponse = async (sessionId: string, newStatus: 'accepted' | 'rejected') => {
     try {
-      await updateSessionStatus(sessionId, newStatus);
+      // For now, let's add a placeholder meeting link on acceptance.
+      // In a real app, this would be generated via an API call.
+      const meetingLink = newStatus === 'accepted' ? 'https://meet.google.com/new' : undefined;
+
+      await updateSessionStatus(sessionId, newStatus, meetingLink);
+
       setSessions(prevSessions =>
-        prevSessions.map(s => (s.id === sessionId ? { ...s, status: newStatus } : s))
+        prevSessions.map(s => (s.id === sessionId ? { ...s, status: newStatus, meetingLink } : s))
       );
       toast({
         title: "Success",
@@ -63,45 +69,62 @@ export default function SessionsPage() {
       });
     }
   };
+  
+  const renderSessionCard = (session: Session) => {
+      const isMentor = session.mentorId === user?.uid;
+      const otherPartyName = isMentor ? session.menteeName : session.mentorName;
 
-  const renderSessionCard = (session: Session, type: 'mentee' | 'mentor') => (
-    <Card key={session.id} className="mb-4">
-      <CardHeader>
-        <CardTitle>
-          {type === 'mentee' ? `Session with ${session.mentorName}` : `Session with ${session.menteeName}`}
-        </CardTitle>
-        <CardDescription>Skill: {session.skill}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center text-sm text-muted-foreground mb-4">
-          <Clock className="mr-2 h-4 w-4" />
-          <span>{new Date(session.dateTime).toLocaleString()}</span>
-        </div>
-        <p className="mb-4">Status: <span className="font-semibold">{session.status}</span></p>
+      return (
+        <Card key={session.id} className="mb-4">
+          <CardHeader>
+            <CardTitle>
+              Session with {otherPartyName}
+            </CardTitle>
+            <CardDescription>Skill: {session.skill}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center text-sm text-muted-foreground mb-4">
+              <Clock className="mr-2 h-4 w-4" />
+              <span>{new Date(session.dateTime).toLocaleString()}</span>
+            </div>
+            <p className="mb-4">Status: <span className="font-semibold capitalize">{session.status}</span></p>
 
-        {session.status === 'pending' && type === 'mentor' && (
-          <div className="flex gap-2">
-            <Button onClick={() => handleResponse(session.id, 'accepted')}><Check className="mr-2 h-4 w-4" /> Accept</Button>
-            <Button variant="destructive" onClick={() => handleResponse(session.id, 'rejected')}><X className="mr-2 h-4 w-4" /> Reject</Button>
-          </div>
-        )}
+            {session.status === 'pending' && isMentor && (
+              <div className="flex gap-2">
+                <Button onClick={() => handleResponse(session.id, 'accepted')}><Check className="mr-2 h-4 w-4" /> Accept</Button>
+                <Button variant="destructive" onClick={() => handleResponse(session.id, 'rejected')}><X className="mr-2 h-4 w-4" /> Reject</Button>
+              </div>
+            )}
 
-        {session.status === 'accepted' && (
-           <div className="flex gap-2 items-center">
-             <Button variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
-             <Button><Video className="mr-2 h-4 w-4" /> Join Meet</Button>
-           </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+            {session.status === 'accepted' && (
+               <div className="flex gap-2 items-center">
+                 <Button variant="outline" disabled><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
+                 {session.meetingLink ? (
+                   <Button asChild>
+                    <Link href={session.meetingLink} target="_blank"><Video className="mr-2 h-4 w-4" /> Join Meet</Link>
+                   </Button>
+                 ) : (
+                    <Button disabled><Video className="mr-2 h-4 w-4" /> Awaiting Link</Button>
+                 )}
+               </div>
+            )}
+          </CardContent>
+          {session.status === 'completed' && (
+            <CardFooter>
+                 <p className="text-sm text-muted-foreground">This session is complete.</p>
+            </CardFooter>
+          )}
+        </Card>
+      );
+  }
 
   if (loading || authLoading) {
     return <LoadingSpinner text="Loading sessions..." />;
   }
 
-  const sessionsAsMentee = sessions.filter(s => s.menteeId === user?.uid);
-  const sessionsAsMentor = sessions.filter(s => s.mentorId === user?.uid);
+  const upcomingSessions = sessions.filter(s => s.status === 'pending' || s.status === 'accepted');
+  const completedSessions = sessions.filter(s => s.status === 'completed' || s.status === 'rejected');
+
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -114,23 +137,23 @@ export default function SessionsPage() {
         </p>
       </header>
       
-      <Tabs defaultValue="mentee" className="w-full">
+      <Tabs defaultValue="upcoming" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="mentee">Learning (as Mentee)</TabsTrigger>
-          <TabsTrigger value="mentor">Teaching (as Mentor)</TabsTrigger>
+          <TabsTrigger value="upcoming"><CalendarCheck className="mr-2 h-4 w-4"/>Upcoming</TabsTrigger>
+          <TabsTrigger value="history"><History className="mr-2 h-4 w-4"/>History</TabsTrigger>
         </TabsList>
-        <TabsContent value="mentee">
-          {sessionsAsMentee.length > 0 ? (
-            sessionsAsMentee.map(session => renderSessionCard(session, 'mentee'))
+        <TabsContent value="upcoming">
+          {upcomingSessions.length > 0 ? (
+            upcomingSessions.map(session => renderSessionCard(session))
           ) : (
-            <p className="text-muted-foreground text-center py-8">You have not requested any sessions.</p>
+            <p className="text-muted-foreground text-center py-8">You have no upcoming sessions.</p>
           )}
         </TabsContent>
-        <TabsContent value="mentor">
-          {sessionsAsMentor.length > 0 ? (
-            sessionsAsMentor.map(session => renderSessionCard(session, 'mentor'))
+        <TabsContent value="history">
+          {completedSessions.length > 0 ? (
+            completedSessions.map(session => renderSessionCard(session))
           ) : (
-            <p className="text-muted-foreground text-center py-8">You have no incoming session requests.</p>
+            <p className="text-muted-foreground text-center py-8">You have no past sessions.</p>
           )}
         </TabsContent>
       </Tabs>
