@@ -16,10 +16,14 @@ import {
   Trophy,
   User,
   Wallet,
+  AlertCircle
 } from "lucide-react";
 import AiSkillSuggestion from "@/components/features/ai-skill-suggestion";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getUserProfile, UserProfile } from "@/lib/firestore";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 const featureCards = [
   {
@@ -61,14 +65,30 @@ const featureCards = [
 ];
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login");
     }
-  }, [loading, user, router]);
+  }, [authLoading, user, router]);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (user) {
+        setProfileLoading(true);
+        const userProfile = await getUserProfile(user.uid);
+        setProfile(userProfile);
+        setProfileLoading(false);
+      }
+    }
+    fetchProfile();
+  }, [user]);
+  
+  const loading = authLoading || profileLoading;
 
   if (loading || !user) {
     return (
@@ -102,6 +122,19 @@ export default function DashboardPage() {
           Here's your command center for swapping skills and tracking progress.
         </p>
       </header>
+
+      {profile && !profile.profileComplete && (
+        <Alert variant="destructive" className="mb-8 max-w-4xl mx-auto">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Complete Your Profile!</AlertTitle>
+          <AlertDescription>
+            Your profile is missing required information. Please update your skills and LinkedIn profile to get the most out of SkillSwap.
+            <Button asChild variant="link" className="p-0 h-auto ml-2">
+              <Link href="/profile">Go to Profile</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <main className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {featureCards.map((card) => (
