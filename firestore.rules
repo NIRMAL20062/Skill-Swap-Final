@@ -1,66 +1,66 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is the mentee for a given session
-    function isMenteeForSession(sessionId) {
-      return get(/databases/$(database)/documents/sessions/$(sessionId)).data.menteeId == request.auth.uid;
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
-    // Helper function to check if a user is the mentor for a given session
-    function isMentorForSession(sessionId) {
-      return get(/databases/$(database)/documents/sessions/$(sessionId)).data.mentorId == request.auth.uid;
+    function isProfileComplete(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.profileComplete == true;
     }
 
-    // Helper function to check if the session is completed
-    function isSessionCompleted(sessionId) {
-      return get(/databases/$(database)/documents/sessions/$(sessionId)).data.status == 'completed';
-    }
-
-    // Helper function to check if the request is part of a feedback submission transaction
-    function isSubmittingFeedback(review) {
-        let mentorProfile = get(/databases/$(database)/documents/users/$(review.mentorId)).data;
-        let newReviewCount = mentorProfile.reviewCount + 1;
-        let newRating = (mentorProfile.rating * mentorProfile.reviewCount + review.rating) / newReviewCount;
-      
-        let incomingMentorData = request.resource.data;
-
-        // Check that the user profile update is valid
-        let isRatingUpdateValid = incomingMentorData.reviewCount == newReviewCount && incomingMentorData.rating == newRating;
-        
-        // Check that the session update is valid
-        let isSessionUpdateValid = request.resource.data.feedbackSubmitted == true;
-
-        return isRatingUpdateValid || isSessionUpdateValid;
-    }
-
-
+    // USERS collection
     match /users/{userId} {
-      allow read;
-      // Users can only create their own profile
-      allow create: if request.auth.uid == userId;
-
-      // Users can only update their own profile,
-      // OR another user can update their rating, but only as part of submitting a review.
-      allow update: if request.auth.uid == userId ||
-                     (request.auth.uid != null && isSubmittingFeedback(request.resource.data));
-    }
-
-    match /sessions/{sessionId} {
-      // Users can read/write to a session if they are the mentee or mentor
-      allow read, write: if request.auth != null && (isMenteeForSession(sessionId) || isMentorForSession(sessionId));
+      // Anyone can read a user's profile
+      allow read: if true;
       
-      // A user can create a session if they are the mentee in the request
-      allow create: if request.auth != null && request.resource.data.menteeId == request.auth.uid;
+      // Only the authenticated owner can create or update their own profile
+      allow create, update: if isSignedIn() && isOwner(userId);
     }
 
+    // SESSIONS collection
+    match /sessions/{sessionId} {
+      // A user can read a session if they are the mentee or the mentor
+      allow read: if isSignedIn() && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+
+      // A mentee with a complete profile can create a session request
+      allow create: if isSignedIn() && request.resource.data.menteeId == request.auth.uid && isProfileComplete(request.auth.uid);
+
+      // A mentor can update a session (e.g., accept, add link).
+      // A mentee or mentor can update to mark it complete.
+      // A mentee can update to mark feedback as submitted.
+      allow update: if isSignedIn() && 
+                      (
+                        // Mentor can accept/reject/add link
+                        (resource.data.mentorId == request.auth.uid) ||
+                        // Either party can mark as complete
+                        (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid)
+                      );
+    }
+
+    // REVIEWS collection
     match /reviews/{reviewId} {
-      allow read;
-      // A review can only be created by the mentee of a completed session
-      allow create: if request.auth != null &&
-                       isMenteeForSession(request.resource.data.sessionId) &&
-                       isSessionCompleted(request.resource.data.sessionId);
+        // Anyone can read reviews
+        allow read: if true;
+
+        // A user can create a review if:
+        // 1. They are the mentee of the session.
+        // 2. The session is marked 'completed'.
+        // 3. They are also updating the mentor's rating and the session's feedback status.
+        allow create: if isSignedIn() &&
+                       request.resource.data.menteeId == request.auth.uid &&
+                       get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.status == 'completed' &&
+                       // Check that the corresponding user and session docs are also being updated in the same transaction
+                       getAfter(/databases/$(database)/documents/users/$(request.resource.data.mentorId)).data.reviewCount == get(/databases/$(database)/documents/users/$(request.resource.data.mentorId)).data.reviewCount + 1 &&
+                       getAfter(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.feedbackSubmitted == true;
     }
   }
 }
