@@ -52,17 +52,18 @@ export default function Header() {
   };
   
   const navLinks = user ? authNavLinks : baseNavLinks;
+  const logoHref = user ? "/dashboard" : "/";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-4 hidden md:flex">
-          <div className="mr-6 flex items-center space-x-2">
+          <Link href={logoHref} className="mr-6 flex items-center space-x-2">
             <Handshake className="h-6 w-6 text-primary" />
             <span className="hidden font-bold sm:inline-block font-headline">
               SkillSwap
             </span>
-          </div>
+          </Link>
           {isClient && (
             <nav className="flex items-center space-x-6 text-sm font-medium">
               {navLinks.map((link) => (
@@ -90,12 +91,13 @@ export default function Header() {
           </SheetTrigger>
           <SheetContent side="left" className="pr-0">
             <SheetClose asChild>
-              <div
+              <Link
+                href={logoHref}
                 className="flex items-center"
               >
                 <Handshake className="mr-2 h-6 w-6 text-primary" />
                 <span className="font-bold font-headline">SkillSwap</span>
-              </div>
+              </Link>
             </SheetClose>
             {isClient && (
               <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
@@ -115,12 +117,13 @@ export default function Header() {
             )}
           </SheetContent>
         </Sheet>
-        <div
+        <Link
+          href={logoHref}
           className="flex items-center space-x-2 md:hidden mr-auto"
         >
           <Handshake className="h-6 w-6 text-primary" />
           <span className="font-bold font-headline">SkillSwap</span>
-        </div>
+        </Link>
 
         <div className="flex flex-1 items-center justify-end space-x-4">
             {isClient && !loading && (
