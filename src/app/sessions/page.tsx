@@ -3,7 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete, submitReviewAndUpdateRating } from "@/lib/firestore";
+import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete } from "@/lib/firestore";
+import { submitReviewAndUpdateRatingAction } from "@/lib/actions";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -118,7 +119,7 @@ export default function SessionsPage() {
     }
     setIsSubmittingFeedback(true);
     try {
-        await submitReviewAndUpdateRating({
+        await submitReviewAndUpdateRatingAction({
             sessionId: currentSessionForFeedback.id,
             mentorId: currentSessionForFeedback.mentorId,
             menteeId: currentSessionForFeedback.menteeId,

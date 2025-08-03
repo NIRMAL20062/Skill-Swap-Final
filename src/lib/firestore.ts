@@ -125,8 +125,8 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
     const mentorQuery = query(sessionsCollection, where('mentorId', '==', userId));
 
     const [menteeSnapshot, mentorSnapshot] = await Promise.all([
-        getDocsFromServer(menteeQuery),
-        getDocsFromServer(mentorQuery)
+        getDocs(menteeQuery),
+        getDocs(mentorQuery)
     ]);
     
     const sessions: Session[] = [];
@@ -187,40 +187,41 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
     });
 };
 
-export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
-    const mentorRef = doc(db, "users", review.mentorId);
-    const reviewCollection = collection(db, "reviews");
-    const newReviewRef = doc(reviewCollection);
-    const sessionRef = doc(db, "sessions", review.sessionId);
+// This function is being replaced by a server action and will no longer be used.
+// export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
+//     const mentorRef = doc(db, "users", review.mentorId);
+//     const reviewCollection = collection(db, "reviews");
+//     const newReviewRef = doc(reviewCollection);
+//     const sessionRef = doc(db, "sessions", review.sessionId);
 
-    return runTransaction(db, async (transaction) => {
-        const mentorDoc = await transaction.get(mentorRef);
-        if (!mentorDoc.exists()) {
-            throw "Mentor does not exist!";
-        }
+//     return runTransaction(db, async (transaction) => {
+//         const mentorDoc = await transaction.get(mentorRef);
+//         if (!mentorDoc.exists()) {
+//             throw "Mentor does not exist!";
+//         }
 
-        const mentorData = mentorDoc.data() as UserProfile;
+//         const mentorData = mentorDoc.data() as UserProfile;
 
-        // Calculate new average rating
-        const currentRating = mentorData.rating || 0;
-        const reviewCount = mentorData.reviewCount || 0;
-        const newReviewCount = reviewCount + 1;
-        const newTotalRating = (currentRating * reviewCount) + review.rating;
-        const newAverageRating = newTotalRating / newReviewCount;
+//         // Calculate new average rating
+//         const currentRating = mentorData.rating || 0;
+//         const reviewCount = mentorData.reviewCount || 0;
+//         const newReviewCount = reviewCount + 1;
+//         const newTotalRating = (currentRating * reviewCount) + review.rating;
+//         const newAverageRating = newTotalRating / newReviewCount;
 
-        // Update mentor's profile with new rating
-        transaction.update(mentorRef, { 
-            rating: newAverageRating,
-            reviewCount: newReviewCount 
-        });
+//         // Update mentor's profile with new rating
+//         transaction.update(mentorRef, { 
+//             rating: newAverageRating,
+//             reviewCount: newReviewCount 
+//         });
 
-        // Save the new review
-        transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
+//         // Save the new review
+//         transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
 
-        // Mark that feedback has been submitted on the session
-        transaction.update(sessionRef, { feedbackSubmitted: true });
-    });
-}
+//         // Mark that feedback has been submitted on the session
+//         transaction.update(sessionRef, { feedbackSubmitted: true });
+//     });
+// }
 
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     const reviewsCollection = collection(db, 'reviews');
