@@ -35,8 +35,11 @@ export default function SignupPage() {
     setIsLoading(true);
     try {
       await signUpWithEmail(email, password);
-      // You might want to save the full name to your database here
-      router.push("/dashboard");
+      toast({
+        title: "Account Created",
+        description: "A verification email has been sent. Please check your inbox.",
+      });
+      router.push("/login");
     } catch (error: any) {
       toast({
         title: "Sign Up Failed",
@@ -125,7 +128,7 @@ export default function SignupPage() {
             </div>
           </div>
           <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
-            <GoogleIcon />
+            {isLoading ? <span className="animate-spin h-5 w-5 mr-3 border-t-2 border-b-2 border-primary rounded-full"></span> : <GoogleIcon />}
             Sign up with Google
           </Button>
           <div className="mt-4 text-center text-sm">

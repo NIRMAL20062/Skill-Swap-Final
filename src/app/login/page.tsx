@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Handshake } from "lucide-react";
-import { signInWithEmail, signInWithGoogle } from "@/lib/auth";
+import { signInWithEmail, signInWithGoogle, auth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
 const GoogleIcon = () => (
@@ -33,6 +33,15 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithEmail(email, password);
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
+        toast({
+            title: "Verification Pending",
+            description: "Please check your email and verify your account before logging in.",
+            variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
       router.push("/dashboard");
     } catch (error: any) {
       toast({
@@ -119,7 +128,7 @@ export default function LoginPage() {
             </div>
           </div>
           <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading}>
-            <GoogleIcon />
+            {isLoading ? <span className="animate-spin h-5 w-5 mr-3 border-t-2 border-b-2 border-primary rounded-full"></span> : <GoogleIcon />}
             Sign in with Google
           </Button>
           <div className="mt-4 text-center text-sm">

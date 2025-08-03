@@ -9,6 +9,7 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  sendEmailVerification,
   type User,
 } from "firebase/auth";
 import { app } from "./firebase";
@@ -16,8 +17,10 @@ import { useState, useEffect } from "react";
 
 export const auth = getAuth(app);
 
-export const signUpWithEmail = (email: string, password: string) => {
-  return createUserWithEmailAndPassword(auth, email, password);
+export const signUpWithEmail = async (email: string, password: string) => {
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  await sendEmailVerification(userCredential.user);
+  return userCredential;
 };
 
 export const signInWithEmail = (email: string, password: string) => {
