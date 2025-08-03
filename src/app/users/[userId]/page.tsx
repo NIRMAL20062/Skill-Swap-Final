@@ -3,12 +3,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserProfile, UserProfile, requestSession } from "@/lib/firestore";
+import { getUserProfile, UserProfile, requestSession, getReviewsForUser, Review as ReviewType } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
@@ -24,16 +24,34 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 
+function ReviewStars({ rating }: { rating: number }) {
+  const totalStars = 5;
+  return (
+    <div className="flex items-center">
+      {[...Array(totalStars)].map((_, i) => (
+        <Star
+          key={i}
+          className={cn(
+            "h-5 w-5",
+            i < Math.round(rating) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
   const { userId } = params;
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [reviews, setReviews] = useState<ReviewType[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   
-  // Booking state
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -41,23 +59,30 @@ export default function UserProfilePage() {
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
-    if (typeof userId === 'string') {
+    async function fetchData() {
+      if (typeof userId !== 'string') return;
+      
       setLoading(true);
-      getUserProfile(userId)
-        .then(userProfile => {
-          if (userProfile) {
-            setProfile(userProfile);
-          } else {
-            router.push('/discover');
-          }
-          setLoading(false);
-        })
-        .catch(error => {
-          console.error("Failed to fetch user profile:", error);
-          setLoading(false);
+      try {
+        const [userProfile, userReviews] = await Promise.all([
+          getUserProfile(userId),
+          getReviewsForUser(userId)
+        ]);
+        
+        if (userProfile) {
+          setProfile(userProfile);
+          setReviews(userReviews);
+        } else {
           router.push('/discover');
-        });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data:", error);
+        router.push('/discover');
+      } finally {
+        setLoading(false);
+      }
     }
+    fetchData();
   }, [userId, router]);
 
   const handleBookingRequest = async () => {
@@ -145,8 +170,8 @@ export default function UserProfilePage() {
             <div className="flex items-center gap-4 text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                <span className="font-semibold">N/A</span>
-                <span>(0 reviews)</span>
+                <span className="font-semibold">{profile.rating?.toFixed(1) ?? 'N/A'}</span>
+                <span>({profile.reviewCount ?? 0} reviews)</span>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
@@ -276,11 +301,33 @@ export default function UserProfilePage() {
           <Separator className="my-6" />
 
           <div>
-             <h3 className="text-xl font-headline mb-4">Reviews</h3>
-             <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                <p>No reviews yet.</p>
-                <p className="text-sm">Be the first one to book a session and leave a review!</p>
-             </div>
+             <h3 className="text-xl font-headline mb-4">Reviews ({reviews.length})</h3>
+             {reviews.length > 0 ? (
+                <div className="space-y-6">
+                    {reviews.map(review => (
+                        <Card key={review.id} className="bg-secondary/20 border-l-4 border-primary">
+                            <CardHeader>
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <CardTitle className="text-lg">{review.menteeName}</CardTitle>
+                                        <CardDescription>{new Date(review.createdAt.toDate()).toLocaleDateString()}</CardDescription>
+                                    </div>
+                                    <ReviewStars rating={review.rating} />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-muted-foreground italic">"{review.reviewText}"</p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+             ) : (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                    <MessageCircle className="mx-auto h-12 w-12 text-gray-400" />
+                    <p className="mt-4">No reviews yet.</p>
+                    {!isOwnProfile && <p className="text-sm">Be the first one to book a session and leave a review!</p>}
+                </div>
+             )}
           </div>
 
         </CardContent>

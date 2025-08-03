@@ -15,6 +15,8 @@ interface UserCardProps {
 
 export function UserCard({ user }: UserCardProps) {
   const initial = user.displayName ? user.displayName.charAt(0).toUpperCase() : "S";
+  const rating = user.rating ?? 0;
+  const reviewCount = user.reviewCount ?? 0;
 
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
@@ -27,7 +29,7 @@ export function UserCard({ user }: UserCardProps) {
           <h3 className="font-headline text-xl font-semibold leading-tight">{user.displayName}</h3>
           <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
             <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-            <span>N/A (0 reviews)</span>
+            <span>{rating > 0 ? rating.toFixed(1) : 'N/A'} ({reviewCount} reviews)</span>
           </div>
         </div>
       </CardHeader>

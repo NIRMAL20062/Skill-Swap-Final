@@ -1,6 +1,6 @@
 
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, getDocsFromServer } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, getDocsFromServer, runTransaction, writeBatch } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 export interface UserProfile {
@@ -16,6 +16,8 @@ export interface UserProfile {
   createdAt?: any;
   updatedAt?: any;
   profileComplete?: boolean;
+  rating?: number;
+  reviewCount?: number;
 }
 
 export interface Session {
@@ -30,6 +32,20 @@ export interface Session {
   createdAt?: any;
   updatedAt?: any;
   meetingLink?: string;
+  mentorCompleted?: boolean;
+  menteeCompleted?: boolean;
+  feedbackSubmitted?: boolean;
+}
+
+export interface Review {
+    id?: string;
+    sessionId: string;
+    mentorId: string;
+    menteeId: string;
+    menteeName: string;
+    rating: number;
+    reviewText: string;
+    createdAt: any;
 }
 
 
@@ -42,6 +58,8 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     profileComplete: false,
+    rating: 0,
+    reviewCount: 0,
   }, { merge: true });
 };
 
@@ -69,7 +87,6 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", uid);
 
-  // First, get the existing profile to merge with new data
   const existingProfile = await getUserProfile(uid);
   const mergedData = { ...existingProfile, ...data };
 
@@ -95,6 +112,9 @@ export const requestSession = async (sessionData: Omit<Session, 'id'>) => {
     ...sessionData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    mentorCompleted: false,
+    menteeCompleted: false,
+    feedbackSubmitted: false,
   });
 };
 
@@ -114,7 +134,6 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
         sessions.push({ id: doc.id, ...doc.data() } as Session);
     });
     mentorSnapshot.forEach(doc => {
-        // Avoid duplicates if a user is both mentee and mentor in the same session (unlikely but possible)
         if (!sessions.find(s => s.id === doc.id)) {
             sessions.push({ id: doc.id, ...doc.data() } as Session);
         }
@@ -122,7 +141,6 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
 
     return sessions.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
 };
-
 
 // Function to update a session's status
 export const updateSessionStatus = async (sessionId: string, status: Session['status'], meetingLink?: string) => {
@@ -136,3 +154,82 @@ export const updateSessionStatus = async (sessionId: string, status: Session['st
     }
     return updateDoc(sessionRef, updateData);
 };
+
+export const markSessionAsComplete = async (sessionId: string, userId: string) => {
+    const sessionRef = doc(db, 'sessions', sessionId);
+
+    return runTransaction(db, async (transaction) => {
+        const sessionDoc = await transaction.get(sessionRef);
+        if (!sessionDoc.exists()) {
+            throw "Session does not exist!";
+        }
+
+        const sessionData = sessionDoc.data() as Session;
+        const isMentor = sessionData.mentorId === userId;
+        
+        const updateData: Partial<Session> = {};
+        if (isMentor) {
+            updateData.mentorCompleted = true;
+        } else {
+            updateData.menteeCompleted = true;
+        }
+
+        // Check if the other party has already marked it as complete
+        const bothMarked = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
+
+        if (bothMarked) {
+            updateData.status = 'completed';
+        }
+        
+        transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
+
+        return { ...sessionData, ...updateData };
+    });
+};
+
+export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
+    const mentorRef = doc(db, "users", review.mentorId);
+    const reviewCollection = collection(db, "reviews");
+    const newReviewRef = doc(reviewCollection);
+    const sessionRef = doc(db, "sessions", review.sessionId);
+
+    return runTransaction(db, async (transaction) => {
+        const mentorDoc = await transaction.get(mentorRef);
+        if (!mentorDoc.exists()) {
+            throw "Mentor does not exist!";
+        }
+
+        const mentorData = mentorDoc.data() as UserProfile;
+
+        // Calculate new average rating
+        const currentRating = mentorData.rating || 0;
+        const reviewCount = mentorData.reviewCount || 0;
+        const newReviewCount = reviewCount + 1;
+        const newTotalRating = (currentRating * reviewCount) + review.rating;
+        const newAverageRating = newTotalRating / newReviewCount;
+
+        // Update mentor's profile with new rating
+        transaction.update(mentorRef, { 
+            rating: newAverageRating,
+            reviewCount: newReviewCount 
+        });
+
+        // Save the new review
+        transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
+
+        // Mark that feedback has been submitted on the session
+        transaction.update(sessionRef, { feedbackSubmitted: true });
+    });
+}
+
+export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
+    const reviewsCollection = collection(db, 'reviews');
+    const q = query(reviewsCollection, where('mentorId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    const reviews: Review[] = [];
+    querySnapshot.forEach((doc) => {
+        reviews.push({ id: doc.id, ...doc.data() } as Review);
+    });
+    return reviews;
+}
