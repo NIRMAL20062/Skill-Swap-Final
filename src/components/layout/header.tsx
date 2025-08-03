@@ -90,13 +90,15 @@ export default function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="pr-0">
-            <Link
-              href={isClient ? logoHref : "/"}
-              className="flex items-center"
-            >
-              <Handshake className="mr-2 h-6 w-6 text-primary" />
-              <span className="font-bold font-headline">SkillSwap</span>
-            </Link>
+            <SheetClose asChild>
+              <Link
+                href={isClient ? logoHref : "/"}
+                className="flex items-center"
+              >
+                <Handshake className="mr-2 h-6 w-6 text-primary" />
+                <span className="font-bold font-headline">SkillSwap</span>
+              </Link>
+            </SheetClose>
             <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
               <div className="flex flex-col space-y-3">
                 {navLinks.map((link) => (
