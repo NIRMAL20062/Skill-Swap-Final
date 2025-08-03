@@ -202,23 +202,21 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
 }
 
 // New function for submitting a review
+// This will now be handled by a background cloud function.
+// The client will just write the review and update the session.
 export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
-    // This transaction will just write the review and update the session.
-    // The aggregation will be handled by a Cloud Function trigger.
-    const reviewCollection = collection(db, 'reviews');
-    const sessionRef = doc(db, 'sessions', reviewData.sessionId);
-    
-    return runTransaction(db, async (transaction) => {
-      // 1. Create the new review document
-      const newReviewRef = doc(reviewCollection); // auto-generate ID
-      transaction.set(newReviewRef, {
-        ...reviewData,
-        createdAt: serverTimestamp(),
-      });
-      
-      // 2. Mark the session as feedback submitted
-      transaction.update(sessionRef, { feedbackSubmitted: true });
+  const reviewCollection = collection(db, 'reviews');
+  const sessionRef = doc(db, 'sessions', reviewData.sessionId);
+  
+  return runTransaction(db, async (transaction) => {
+    // 1. Create the new review document. The background function will pick this up.
+    const newReviewRef = doc(reviewCollection); // auto-generate ID
+    transaction.set(newReviewRef, {
+      ...reviewData,
+      createdAt: serverTimestamp(),
     });
-};
-
     
+    // 2. Mark the session as feedback submitted
+    transaction.update(sessionRef, { feedbackSubmitted: true });
+  });
+};

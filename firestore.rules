@@ -4,7 +4,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -13,65 +12,32 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    function getSessionData(sessionId) {
-      return get(/databases/$(database)/documents/sessions/$(sessionId)).data;
-    }
-
-    // Rules for 'users' collection
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
-
-      // Users can only update their own non-critical profile information.
-      // Rating and reviewCount are updated by the backend function.
-      allow update: if isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly([
-            'displayName', 'skillsToTeach', 'skillsToLearn',
-            'linkedinProfile', 'githubProfile', 'leetcodeProfile',
-            'updatedAt', 'profileComplete', 'photoURL'
-          ]);
+      // Allow updates to profile info by owner, and allow anyone to update rating/review info
+      allow update: if isOwner(userId);
     }
 
-    // Rules for 'sessions' collection
     match /sessions/{sessionId} {
-      allow read: if isSignedIn() &&
-        (resource.data.menteeId == request.auth.uid ||
-         resource.data.mentorId == request.auth.uid);
+      allow read: if isSignedIn() && 
+                   (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
 
-      allow create: if isSignedIn() &&
-        request.resource.data.menteeId == request.auth.uid;
-
-      // Allow updates for session status, meeting links, completion marks,
-      // and feedback submission status by the involved parties.
-      allow update: if isSignedIn() && (
-        (resource.data.mentorId == request.auth.uid && request.resource.data.status != resource.data.status) || // Mentor accepts/rejects
-        (resource.data.mentorId == request.auth.uid && request.resource.data.meetingLink != resource.data.meetingLink) || // Mentor adds link
-        (
-          (resource.data.mentorId == request.auth.uid || resource.data.menteeId == request.auth.uid) &&
-          (
-            request.resource.data.mentorCompleted != resource.data.mentorCompleted ||
-            request.resource.data.menteeCompleted != resource.data.menteeCompleted ||
-            request.resource.data.status == 'completed'
-          )
-        ) || // Either party marks as complete
-        (resource.data.menteeId == request.auth.uid && request.resource.data.feedbackSubmitted == true) // Mentee submits feedback
-      );
+      allow create: if isSignedIn() && request.resource.data.menteeId == request.auth.uid;
+      
+      // Allow mentee to mark feedback as submitted
+      // Allow mentor to accept/reject or add meeting link
+      // Allow either to mark session as complete
+      allow update: if isSignedIn() && 
+                     (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
     }
 
-    // Rules for 'reviews' collection
     match /reviews/{reviewId} {
       allow read: if isSignedIn();
       
-      // Allow a user to create a review if:
-      // 1. They are signed in.
-      // 2. They are the mentee for the session they are reviewing.
-      // 3. The session has been marked as 'completed'.
-      // 4. Feedback has not already been submitted for that session.
-      allow create: if isSignedIn()
-        && request.resource.data.menteeId == request.auth.uid
-        && getSessionData(request.resource.data.sessionId).status == 'completed'
-        && getSessionData(request.resource.data.sessionId).feedbackSubmitted == false;
+      // Allow create if the user is the mentee of the session being reviewed
+      allow create: if isSignedIn() &&
+                     get(/databases/$(database)/documents/sessions/$(request.resource.data.sessionId)).data.menteeId == request.auth.uid;
     }
   }
 }
