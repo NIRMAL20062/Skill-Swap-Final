@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import AiSkillSuggestion from "@/components/features/ai-skill-suggestion";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEffect } from "react";
 
 const featureCards = [
   {
@@ -63,31 +64,32 @@ export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  if (loading) {
-    return (
-        <div className="container mx-auto px-4 py-8 md:py-12">
-            <Skeleton className="h-10 w-1/2 mx-auto mb-4" />
-            <Skeleton className="h-6 w-3/4 mx-auto mb-12" />
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
-                    <Card key={i} className="h-full">
-                        <CardHeader className="flex flex-row items-center gap-4">
-                            <Skeleton className="w-16 h-16 rounded-lg" />
-                            <div className="space-y-2">
-                                <Skeleton className="h-6 w-32" />
-                                <Skeleton className="h-4 w-48" />
-                            </div>
-                        </CardHeader>
-                    </Card>
-                ))}
-            </div>
-        </div>
-    );
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [loading, user, router]);
 
-  if (!user) {
-    router.push("/login");
-    return null;
+  if (loading || !user) {
+    return (
+      <div className="container mx-auto px-4 py-8 md:py-12">
+        <Skeleton className="h-10 w-1/2 mx-auto mb-4" />
+        <Skeleton className="h-6 w-3/4 mx-auto mb-12" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i} className="h-full">
+              <CardHeader className="flex flex-row items-center gap-4">
+                <Skeleton className="w-16 h-16 rounded-lg" />
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
