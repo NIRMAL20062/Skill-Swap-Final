@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useEffect, useState } from "react";
 
 
 const navLinks = [
@@ -33,6 +34,11 @@ const navLinks = [
 export default function Header() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -107,7 +113,7 @@ export default function Header() {
         </Link>
 
         <div className="flex flex-1 items-center justify-end space-x-4">
-            {!loading && (
+            {isClient && !loading && (
                 user ? (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
