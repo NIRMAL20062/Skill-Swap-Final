@@ -167,7 +167,7 @@ export default function UserProfilePage() {
               )}
             </div>
           </div>
-          {!isOwnProfile && (
+          {!isOwnProfile && currentUser && (
             <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
               <DialogTrigger asChild>
                 <Button size="lg">Book a Session</Button>
@@ -292,4 +292,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
