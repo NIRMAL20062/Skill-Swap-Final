@@ -3,22 +3,41 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserProfile, UserProfile } from "@/lib/firestore";
+import { getUserProfile, UserProfile, requestSession } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star } from "lucide-react";
+import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const { user: currentUser, loading: authLoading } = useAuth();
   const { userId } = params;
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  
+  // Booking state
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedTime, setSelectedTime] = useState("");
+  const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
     if (typeof userId === 'string') {
@@ -28,7 +47,6 @@ export default function UserProfilePage() {
           if (userProfile) {
             setProfile(userProfile);
           } else {
-            // Handle user not found, maybe redirect
             router.push('/discover');
           }
           setLoading(false);
@@ -41,7 +59,51 @@ export default function UserProfilePage() {
     }
   }, [userId, router]);
 
-  if (loading) {
+  const handleBookingRequest = async () => {
+    if (!currentUser || !profile || !selectedSkill || !selectedDate || !selectedTime) {
+      toast({
+        title: "Incomplete Information",
+        description: "Please select a skill, date, and time to book a session.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBooking(true);
+    try {
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      const combinedDateTime = new Date(selectedDate);
+      combinedDateTime.setHours(hours, minutes);
+
+      await requestSession({
+        menteeId: currentUser.uid,
+        menteeName: currentUser.displayName || "A User",
+        mentorId: profile.uid,
+        mentorName: profile.displayName || "A Mentor",
+        skill: selectedSkill,
+        dateTime: combinedDateTime.toISOString(),
+        status: 'pending'
+      });
+
+      toast({
+        title: "Request Sent!",
+        description: "Your session request has been sent to the mentor.",
+      });
+      setIsBookingOpen(false);
+    } catch (error) {
+      console.error("Failed to book session:", error);
+      toast({
+        title: "Booking Failed",
+        description: "Could not send your session request. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
+
+  if (loading || authLoading) {
     return <LoadingSpinner text="Loading profile..." />;
   }
 
@@ -56,6 +118,15 @@ export default function UserProfilePage() {
   }
 
   const initial = profile.displayName ? profile.displayName.charAt(0).toUpperCase() : 'S';
+  const isOwnProfile = currentUser?.uid === profile.uid;
+
+  const timeSlots = Array.from({ length: 12 * 2 }, (_, i) => {
+    const hour = Math.floor(i / 2) + 8; // From 8 AM
+    const minute = (i % 2) * 30;
+    const formattedHour = hour.toString().padStart(2, '0');
+    const formattedMinute = minute.toString().padStart(2, '0');
+    return `${formattedHour}:${formattedMinute}`;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -96,7 +167,86 @@ export default function UserProfilePage() {
               )}
             </div>
           </div>
-          <Button size="lg">Book a Session</Button>
+          {!isOwnProfile && (
+            <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg">Book a Session</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Book a Session with {profile.displayName}</DialogTitle>
+                  <DialogDescription>
+                    Select a skill you want to learn and propose a time for your session.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="skill" className="text-right">
+                      Skill
+                    </Label>
+                    <Select onValueChange={setSelectedSkill}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a skill" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profile.skillsToTeach?.map(skill => (
+                          <SelectItem key={skill} value={skill}>{skill}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="date" className="text-right">
+                      Date
+                    </Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "col-span-3 justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarPicker
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                          disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="time" className="text-right">
+                      Time
+                    </Label>
+                     <Select onValueChange={setSelectedTime}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select a time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map(time => (
+                          <SelectItem key={time} value={time}>{time}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking}>
+                    {isBooking ? "Sending Request..." : "Send Request"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent className="mt-4">
           <Separator className="my-6" />
@@ -142,3 +292,4 @@ export default function UserProfilePage() {
     </div>
   );
 }
+

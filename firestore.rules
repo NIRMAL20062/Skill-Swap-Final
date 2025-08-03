@@ -1,11 +1,20 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Users can only read, create, and update their own profile.
+    // Any authenticated user can read all profiles for discovery purposes.
     match /users/{userId} {
-      // Allow any authenticated user to read the list of users for the discover page.
-      allow list, get: if request.auth != null;
-      // Allow users to create their own profile and update/delete it.
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+      allow create, update: if request.auth.uid == userId;
+    }
+
+    // Allow users to manage their own sessions
+    match /sessions/{sessionId} {
+      allow read, update: if request.auth != null && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.menteeId == request.auth.uid;
     }
   }
 }

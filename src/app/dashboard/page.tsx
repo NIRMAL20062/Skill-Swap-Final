@@ -40,7 +40,7 @@ const featureCards = [
     title: "Manage Sessions",
     description: "Track and organize your sessions.",
     icon: <CalendarCheck className="w-8 h-8" />,
-    href: "#",
+    href: "/sessions",
   },
   {
     title: "My Wallet",
