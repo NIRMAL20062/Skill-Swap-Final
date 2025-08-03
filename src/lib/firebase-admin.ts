@@ -6,14 +6,10 @@ import * as admin from 'firebase-admin';
 
 // Ensure the app is only initialized once
 if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      // When running on Google Cloud infrastructure, the credentials
-      // are automatically discovered.
-    });
-  } catch (error) {
-    console.error('Firebase admin initialization error', error);
-  }
+  admin.initializeApp({
+    // When running on Google Cloud infrastructure, the credentials
+    // are automatically discovered. No need to pass them in here.
+  });
 }
 
 export const db = admin.firestore();
