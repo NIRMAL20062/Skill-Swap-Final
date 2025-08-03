@@ -10,6 +10,7 @@
 import { onCall } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+import * as functions from "firebase-functions";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
@@ -68,15 +69,18 @@ export const submitReview = onCall(async (request) => {
             const sessionDoc = await transaction.get(sessionRef);
 
             if (!mentorDoc.exists) {
-                throw new functions.https.HttpsError("not-found", "Mentor not found.");
+                // This will be caught by the outer catch block and re-thrown as an HttpsError
+                throw new Error("Mentor not found.");
             }
             if (!sessionDoc.exists) {
-                throw new functions.https.HttpsError("not-found", "Session not found.");
+                // This will be caught by the outer catch block and re-thrown as an HttpsError
+                throw new Error("Session not found.");
             }
             
             const sessionData = sessionDoc.data();
             if (sessionData?.feedbackSubmitted) {
-                throw new functions.https.HttpsError("failed-precondition", "Feedback has already been submitted for this session.");
+                // This will be caught by the outer catch block and re-thrown as an HttpsError
+                throw new Error("Feedback has already been submitted for this session.");
             }
 
             const mentorData = mentorDoc.data()!;
@@ -102,14 +106,22 @@ export const submitReview = onCall(async (request) => {
 
         logger.info("Review submitted successfully for mentor:", data.mentorId);
         return { success: true, message: "Feedback submitted successfully." };
-    } catch (error) {
+    } catch (error: any) {
         logger.error("Error submitting review:", error);
+        
+        // If it's already an HttpsError, just rethrow it
         if (error instanceof functions.https.HttpsError) {
             throw error;
         }
+
+        // For transaction errors or custom errors thrown inside, convert to a clear HttpsError
+        let code: functions.https.FunctionsErrorCode = 'internal';
+        if (error.message.includes("not found")) code = 'not-found';
+        if (error.message.includes("already been submitted")) code = 'failed-precondition';
+
         throw new functions.https.HttpsError(
-            "internal",
-            "An unexpected error occurred while submitting feedback.",
+            code,
+            error.message || "An unexpected error occurred while submitting feedback.",
         );
     }
 });
