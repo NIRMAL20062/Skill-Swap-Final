@@ -7,19 +7,22 @@ import LoadingSpinner from "@/components/layout/loading-spinner";
 import { UserCard } from "@/components/features/user-card";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/lib/auth";
 
 export default function DiscoverPage() {
+  const { user: currentUser, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function fetchUsers() {
+      if (authLoading) return;
       setLoading(true);
       try {
         const allUsers = await getAllUsers();
-        // Filter out users who haven't completed their profile
-        const completeProfiles = allUsers.filter(user => user.profileComplete);
+        // Filter out the current user and users who haven't completed their profile
+        const completeProfiles = allUsers.filter(user => user.profileComplete && user.uid !== currentUser?.uid);
         setUsers(completeProfiles);
       } catch (error) {
         console.error("Failed to fetch users:", error);
@@ -29,7 +32,7 @@ export default function DiscoverPage() {
     }
 
     fetchUsers();
-  }, []);
+  }, [authLoading, currentUser]);
 
   const filteredUsers = users.filter(user => {
     const searchTermLower = searchTerm.toLowerCase();
@@ -38,7 +41,9 @@ export default function DiscoverPage() {
     return matchesName || matchesSkills;
   });
 
-  if (loading) {
+  const isLoading = loading || authLoading;
+
+  if (isLoading) {
     return <LoadingSpinner text="Finding peers..." />;
   }
 
