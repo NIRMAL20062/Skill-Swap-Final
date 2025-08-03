@@ -99,20 +99,22 @@ export default function Header() {
                 <span className="font-bold font-headline">SkillSwap</span>
               </Link>
             </SheetClose>
-            <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
-              <div className="flex flex-col space-y-3">
-                {navLinks.map((link) => (
-                  <SheetClose asChild key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-foreground/70 transition-colors hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </SheetClose>
-                ))}
+            {isClient && (
+              <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
+                <div className="flex flex-col space-y-3">
+                  {navLinks.map((link) => (
+                    <SheetClose asChild key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="text-foreground/70 transition-colors hover:text-foreground"
+                      >
+                        {link.label}
+                      </Link>
+                    </SheetClose>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </SheetContent>
         </Sheet>
         <Link
