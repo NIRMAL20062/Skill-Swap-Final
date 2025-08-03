@@ -13,11 +13,11 @@ import { useRouter } from "next/navigation";
 import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History, Link as LinkIcon, Save, Star, ThumbsUp, Send } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { functions } from "@/lib/firebase";
-import { httpsCallable } from "firebase/functions";
+import { httpsCallable, HttpsCallableError } from "firebase/functions";
 
 const submitReviewFunction = httpsCallable(functions, 'submitReview');
 
@@ -138,7 +138,10 @@ export default function SessionsPage() {
       setFeedbackModalOpen(false);
     } catch (error: any) {
       console.error("Feedback submission failed:", error);
-      toast({ title: "Error", description: error.message || "Failed to submit feedback. Please try again.", variant: "destructive" });
+      const errorMessage = error instanceof HttpsCallableError 
+        ? error.message 
+        : "An unexpected error occurred. Please try again.";
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setIsSubmittingFeedback(false);
     }
@@ -298,3 +301,4 @@ export default function SessionsPage() {
   );
 }
 
+    

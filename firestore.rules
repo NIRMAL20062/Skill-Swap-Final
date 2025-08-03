@@ -3,27 +3,47 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Users can read anyone's profile, but only write to their own.
-    // User profiles are public information in this app.
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId;
-    }
-    
-    // Users can create sessions where they are the mentee.
-    // Users can read and update sessions where they are the mentee or mentor.
-    match /sessions/{sessionId} {
-      allow read, update: if request.auth != null && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.menteeId == request.auth.uid;
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Reviews can be read by any authenticated user.
-    // The creation of reviews is handled by the secure Cloud Function.
+    // Users can read any profile, but can only create their own profile.
+    // They can only update their own profile fields, NOT their rating or review count.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) && 
+        !('rating' in request.resource.data) &&
+        !('reviewCount' in request.resource.data);
+    }
+
+    // Users can read sessions they are a part of.
+    // Mentees can create sessions.
+    // Participants can update session status.
+    match /sessions/{sessionId} {
+      allow read: if request.auth != null && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.menteeId == request.auth.uid;
+      
+      // Allow specific updates by mentor or mentee
+      allow update: if request.auth != null &&
+        (
+          // Mentor accepting/rejecting or adding meeting link
+          (resource.data.mentorId == request.auth.uid && 
+            (request.resource.data.status == 'accepted' || request.resource.data.status == 'rejected' || request.resource.data.meetingLink != resource.data.meetingLink)) ||
+          // Either party marking session as complete
+          ((resource.data.mentorId == request.auth.uid || resource.data.menteeId == request.auth.uid) &&
+            (request.resource.data.mentorCompleted != resource.data.mentorCompleted || request.resource.data.menteeCompleted != resource.data.menteeCompleted || request.resource.data.status == 'completed')) ||
+          // Mentee marking that they submitted feedback
+          (resource.data.menteeId == request.auth.uid && request.resource.data.feedbackSubmitted == true)
+        );
+    }
+
+    // Users can read reviews.
+    // Creating reviews is handled by the Cloud Function, so no client-side create rule is needed.
     match /reviews/{reviewId} {
       allow read: if request.auth != null;
-      allow create: if false; // Creation is handled by the Cloud Function
+      allow create: if false; // Disallow client-side creation
     }
   }
 }
