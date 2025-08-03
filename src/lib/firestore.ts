@@ -1,6 +1,6 @@
 
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, getDocsFromServer, runTransaction, writeBatch } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 export interface UserProfile {
@@ -45,7 +45,7 @@ export interface Review {
     menteeName: string;
     rating: number;
     reviewText: string;
-    createdAt: any;
+    createdAt?: any;
 }
 
 
@@ -187,41 +187,50 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
     });
 };
 
-// This function is being replaced by a server action and will no longer be used.
-// export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
-//     const mentorRef = doc(db, "users", review.mentorId);
-//     const reviewCollection = collection(db, "reviews");
-//     const newReviewRef = doc(reviewCollection);
-//     const sessionRef = doc(db, "sessions", review.sessionId);
+export const submitReviewAndUpdateRating = async (review: Omit<Review, 'id'|'createdAt'>) => {
+    const mentorRef = doc(db, "users", review.mentorId);
+    const reviewCollection = collection(db, "reviews");
+    const newReviewRef = doc(reviewCollection);
+    const sessionRef = doc(db, "sessions", review.sessionId);
 
-//     return runTransaction(db, async (transaction) => {
-//         const mentorDoc = await transaction.get(mentorRef);
-//         if (!mentorDoc.exists()) {
-//             throw "Mentor does not exist!";
-//         }
+    return runTransaction(db, async (transaction) => {
+        const mentorDoc = await transaction.get(mentorRef);
+        const sessionDoc = await transaction.get(sessionRef);
 
-//         const mentorData = mentorDoc.data() as UserProfile;
+        if (!mentorDoc.exists()) {
+            throw new Error("Mentor not found.");
+        }
+        if (!sessionDoc.exists()) {
+            throw new Error("Session not found.");
+        }
+        
+        const sessionData = sessionDoc.data();
+        if (sessionData?.feedbackSubmitted) {
+            throw new Error("Feedback has already been submitted for this session.");
+        }
 
-//         // Calculate new average rating
-//         const currentRating = mentorData.rating || 0;
-//         const reviewCount = mentorData.reviewCount || 0;
-//         const newReviewCount = reviewCount + 1;
-//         const newTotalRating = (currentRating * reviewCount) + review.rating;
-//         const newAverageRating = newTotalRating / newReviewCount;
+        const mentorData = mentorDoc.data() as UserProfile;
 
-//         // Update mentor's profile with new rating
-//         transaction.update(mentorRef, { 
-//             rating: newAverageRating,
-//             reviewCount: newReviewCount 
-//         });
+        // Calculate new average rating
+        const currentRating = mentorData.rating || 0;
+        const reviewCount = mentorData.reviewCount || 0;
+        const newReviewCount = reviewCount + 1;
+        const newTotalRating = (currentRating * reviewCount) + review.rating;
+        const newAverageRating = newTotalRating / newReviewCount;
 
-//         // Save the new review
-//         transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
+        // Update mentor's profile with new rating
+        transaction.update(mentorRef, { 
+            rating: newAverageRating,
+            reviewCount: newReviewCount 
+        });
 
-//         // Mark that feedback has been submitted on the session
-//         transaction.update(sessionRef, { feedbackSubmitted: true });
-//     });
-// }
+        // Save the new review
+        transaction.set(newReviewRef, { ...review, createdAt: serverTimestamp() });
+
+        // Mark that feedback has been submitted on the session
+        transaction.update(sessionRef, { feedbackSubmitted: true });
+    });
+}
 
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     const reviewsCollection = collection(db, 'reviews');
@@ -234,3 +243,5 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     });
     return reviews;
 }
+
+    

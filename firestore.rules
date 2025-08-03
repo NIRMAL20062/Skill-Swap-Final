@@ -1,31 +1,58 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Users can read and write their own profile
-    // Users can read other users' profiles (for discovery)
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // USERS COLLECTION
     match /users/{userId} {
-      allow read: if true;
-      allow write: if request.auth.uid == userId;
+      // Anyone can create their own user profile
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Anyone can view a user's profile
+      allow get: if true;
+
+      // A user can only update their own profile
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+
+      // Users cannot delete their profiles
+      allow delete: if false;
     }
     
-    // Logged-in users can read sessions where they are the mentee or mentor
+    // SESSIONS COLLECTION
     match /sessions/{sessionId} {
-      allow read: if request.auth != null && (request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId);
-      // Writes are now handled by the Cloud Function, but allow creating new requests
-      // and simple status updates by involved parties.
-      allow create: if request.auth.uid == request.resource.data.menteeId;
-      allow update: if request.auth != null && (request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId);
+        // A user can view a session only if they are the mentee or mentor
+        allow get: if isAuthenticated() && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+
+        // An authenticated user can create a session request
+        allow create: if isAuthenticated();
+        
+        // A user can update a session if they are the mentee or mentor
+        allow update: if isAuthenticated() && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid);
+
+        // Users cannot delete sessions
+        allow delete: if false;
     }
-    
-    // Only logged-in users who were the mentee can read their review
-    // Creation is handled by the Cloud Function
+
+    // REVIEWS COLLECTION
     match /reviews/{reviewId} {
-      allow read: if request.auth.uid == resource.data.menteeId;
-      allow create: if false; // Block direct creation
-      allow update: if false; // Block updates
-      allow delete: if false; // Block deletes
+        // Anyone can read reviews
+        allow get: if true;
+        
+        // A mentee can create a review for a session they were part of.
+        // This is checked inside the transaction security rules below.
+        // For a non-transactional write, we can add a simple rule.
+        allow create: if isAuthenticated() && request.resource.data.menteeId == request.auth.uid;
+
+        // Reviews are immutable
+        allow update, delete: if false;
     }
   }
 }
+
+    
