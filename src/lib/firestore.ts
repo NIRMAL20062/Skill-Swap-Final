@@ -1,6 +1,6 @@
 
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 export interface UserProfile {
@@ -46,7 +46,7 @@ export interface Review {
     menteeName: string;
     rating: number;
     reviewText: string;
-    createdAt?: any;
+    createdAt: Timestamp;
 }
 
 
@@ -198,7 +198,7 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     querySnapshot.forEach((doc) => {
         reviews.push({ id: doc.id, ...doc.data() } as Review);
     });
-    return reviews;
+    return reviews.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 }
 
 // New function for submitting a review
