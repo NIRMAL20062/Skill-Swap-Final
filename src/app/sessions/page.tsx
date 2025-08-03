@@ -3,8 +3,8 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete } from "@/lib/firestore";
-import { submitReviewAndUpdateRatingAction } from "@/lib/actions";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -113,24 +113,29 @@ export default function SessionsPage() {
   }
 
   const handleFeedbackSubmit = async () => {
-    if (!currentSessionForFeedback || rating === 0 || !reviewText) {
+    if (!currentSessionForFeedback || rating === 0 || !reviewText || !user) {
         toast({ title: "Incomplete", description: "Please provide a rating and a review.", variant: "destructive" });
         return;
     }
     setIsSubmittingFeedback(true);
     try {
-        await submitReviewAndUpdateRatingAction({
+        const functions = getFunctions();
+        const submitReview = httpsCallable(functions, 'submitReview');
+
+        await submitReview({
             sessionId: currentSessionForFeedback.id,
             mentorId: currentSessionForFeedback.mentorId,
             menteeId: currentSessionForFeedback.menteeId,
-            menteeName: currentSessionForFeedback.menteeName,
+            menteeName: user.displayName || "Anonymous User",
             rating: rating,
             reviewText: reviewText,
         });
+
         setSessions(prev => prev.map(s => s.id === currentSessionForFeedback.id ? {...s, feedbackSubmitted: true} : s));
         toast({ title: "Success", description: "Your feedback has been submitted!" });
         setFeedbackModalOpen(false);
     } catch (error: any) {
+        console.error("Firebase Functions call failed:", error);
         toast({ title: "Error", description: error.message || "Failed to submit feedback.", variant: "destructive" });
     } finally {
         setIsSubmittingFeedback(false);
