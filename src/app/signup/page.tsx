@@ -70,7 +70,6 @@ export default function SignupPage() {
         description: error.message,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };

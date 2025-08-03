@@ -23,8 +23,7 @@ import AiSkillSuggestion from "@/components/features/ai-skill-suggestion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { getUserProfile, UserProfile } from "@/lib/firestore";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import LoadingSpinner from "@/components/layout/loading-spinner";
 
 const featureCards = [
   {
@@ -69,48 +68,29 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
-  }, [authLoading, user, router]);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      if (user) {
-        setProfileLoading(true);
-        const userProfile = await getUserProfile(user.uid);
-        setProfile(userProfile);
-        setProfileLoading(false);
+    if (!authLoading) {
+      if (!user) {
+        router.push("/login");
+      } else {
+        setLoading(true);
+        getUserProfile(user.uid).then((userProfile) => {
+          if (userProfile && !userProfile.profileComplete) {
+            router.push("/complete-profile");
+          } else {
+            setProfile(userProfile);
+            setLoading(false);
+          }
+        });
       }
     }
-    fetchProfile();
-  }, [user]);
+  }, [authLoading, user, router]);
   
-  const loading = authLoading || profileLoading;
 
-  if (loading || !user) {
-    return (
-      <div className="container mx-auto px-4 py-8 md:py-12">
-        <Skeleton className="h-10 w-1/2 mx-auto mb-4" />
-        <Skeleton className="h-6 w-3/4 mx-auto mb-12" />
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="h-full">
-              <CardHeader className="flex flex-row items-center gap-4">
-                <Skeleton className="w-16 h-16 rounded-lg" />
-                <div className="space-y-2">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-48" />
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+  if (loading || !user || !profile) {
+     return <LoadingSpinner text="Loading Dashboard..." />;
   }
 
   return (
@@ -123,19 +103,6 @@ export default function DashboardPage() {
           Here's your command center for swapping skills and tracking progress.
         </p>
       </header>
-
-      {profile && !profile.profileComplete && (
-        <Alert variant="destructive" className="mb-8 max-w-4xl mx-auto">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Complete Your Profile!</AlertTitle>
-          <AlertDescription>
-            Your profile is missing required information. Please update your skills and LinkedIn profile to get the most out of SkillSwap.
-            <Button asChild variant="link" className="p-0 h-auto ml-2">
-              <Link href="/profile">Go to Profile</Link>
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
 
       <main className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {featureCards.map((card) => (

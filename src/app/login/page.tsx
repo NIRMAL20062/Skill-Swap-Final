@@ -52,7 +52,7 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      // Redirection is now handled by the useEffect hook
+      // Redirection is handled by the useEffect hook
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -67,7 +67,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithGoogle();
-      // Redirection is now handled by the useEffect hook
+      // Redirection is handled by the useEffect hook
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -78,15 +78,9 @@ export default function LoginPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || (!authLoading && user)) {
     return <LoadingSpinner text="Authenticating..." />;
   }
-
-  // Prevent rendering login form if user is logged in and waiting for redirect
-  if (user) {
-    return <LoadingSpinner text="Redirecting..." />;
-  }
-
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gray-50 dark:bg-gray-900/10 py-12 px-4">

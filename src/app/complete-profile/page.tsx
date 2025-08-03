@@ -29,18 +29,17 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-export default function ProfilePage() {
+export default function CompleteProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      displayName: "",
+      displayName: user?.displayName || "",
       skillsToTeach: "",
       skillsToLearn: "",
       linkedinProfile: "",
@@ -49,25 +48,21 @@ export default function ProfilePage() {
     },
   });
 
-  useEffect(() => {
+   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/login");
     }
   }, [authLoading, user, router]);
+
 
   useEffect(() => {
     async function fetchProfile() {
       if (user) {
         setProfileLoading(true);
         const userProfile = await getUserProfile(user.uid);
-        if (userProfile && !userProfile.profileComplete) {
-          router.push('/complete-profile');
-          return;
-        }
-        setProfile(userProfile);
         if (userProfile) {
           form.reset({
-            displayName: userProfile.displayName || "",
+            displayName: userProfile.displayName || user.displayName || "",
             skillsToTeach: (userProfile.skillsToTeach || []).join(", "),
             skillsToLearn: (userProfile.skillsToLearn || []).join(", "),
             linkedinProfile: userProfile.linkedinProfile || "",
@@ -79,7 +74,7 @@ export default function ProfilePage() {
       }
     }
     fetchProfile();
-  }, [user, form, router]);
+  }, [user, form]);
 
   async function onSubmit(data: ProfileFormValues) {
     if (!user) return;
@@ -97,9 +92,10 @@ export default function ProfilePage() {
     try {
       await updateUserProfile(user.uid, updatedProfileData);
       toast({
-        title: "Profile Updated",
-        description: "Your information has been saved successfully.",
+        title: "Profile Complete!",
+        description: "Your profile has been saved. Welcome!",
       });
+      router.push('/dashboard');
     } catch (error) {
       toast({
         title: "Error",
@@ -134,10 +130,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-  
-  if (!profile) {
-    return <LoadingSpinner text="Loading profile..." />;
-  }
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -147,8 +139,8 @@ export default function ProfilePage() {
           <div className="flex items-center gap-3">
             <User className="w-8 h-8 text-primary" />
             <div>
-              <CardTitle className="font-headline text-3xl">My Profile</CardTitle>
-              <CardDescription>View and edit your public information here. Keep it up to date!</CardDescription>
+              <CardTitle className="font-headline text-3xl">Complete Your Profile</CardTitle>
+              <CardDescription>Welcome to SkillSwap! Let's get your profile set up so you can start connecting.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -245,7 +237,7 @@ export default function ProfilePage() {
               </div>
 
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save Changes"}
+                {isSaving ? "Saving..." : "Save and Continue"}
               </Button>
             </form>
           </Form>
