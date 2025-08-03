@@ -28,7 +28,7 @@ const featureCards = [
     title: "Discover Peers",
     description: "Find users to trade skills with.",
     icon: <Search className="w-8 h-8" />,
-    href: "#",
+    href: "/discover",
   },
   {
     title: "My Profile",
@@ -75,17 +75,24 @@ export default function DashboardPage() {
       return;
     }
 
-    setLoading(true);
-    getUserProfile(user.uid).then((userProfile) => {
-      if (userProfile && userProfile.profileComplete) {
-        setProfile(userProfile);
-        setLoading(false);
-      } else {
-        router.push("/complete-profile");
-      }
-    }).catch(() => {
+    const checkProfile = async () => {
+      setLoading(true);
+      try {
+        const userProfile = await getUserProfile(user.uid);
+        if (userProfile && userProfile.profileComplete) {
+          setProfile(userProfile);
+        } else {
+          router.push("/complete-profile");
+        }
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
         router.push("/login");
-    });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkProfile();
 
   }, [authLoading, user, router]);
   

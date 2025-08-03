@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -24,7 +25,7 @@ import {
 
 const navLinks = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "#", label: "Discover" },
+    { href: "/discover", label: "Discover" },
     { href: "#", label: "Blog" },
     { href: "#", label: "Help" },
 ];

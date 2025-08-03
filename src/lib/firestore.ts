@@ -1,11 +1,13 @@
+
 // src/lib/firestore.ts
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName?: string;
+  photoURL?: string;
   skillsToLearn?: string[];
   skillsToTeach?: string[];
   linkedinProfile?: string;
@@ -39,6 +41,14 @@ export const getUserProfile = async (uid:string): Promise<UserProfile | null> =>
     return null;
   }
 };
+
+// Function to get all user profiles
+export const getAllUsers = async (): Promise<UserProfile[]> => {
+  const usersCollection = collection(db, "users");
+  const usersSnapshot = await getDocs(usersCollection);
+  const usersList = usersSnapshot.docs.map(doc => doc.data() as UserProfile);
+  return usersList;
+}
 
 // Function to update a user profile
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
