@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Handshake } from "lucide-react";
-import { signInWithEmail, signInWithGoogle, useAuth } from "@/lib/auth";
+import { signInWithEmail, signInWithGoogle } from "@/lib/auth.ts";
+import { useAuth } from "@/lib/auth.tsx";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 
