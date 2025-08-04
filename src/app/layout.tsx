@@ -3,7 +3,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/layout/header';
-import { AuthProvider } from '@/lib/auth'; // Changed from '@/lib/auth.tsx'
+import { AuthProvider } from '@/lib/auth.tsx';
 import Chatbot from '@/components/features/chatbot';
 
 export const metadata: Metadata = {
