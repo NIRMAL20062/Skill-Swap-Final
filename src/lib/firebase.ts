@@ -6,12 +6,12 @@ import { getFunctions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyAhNE3IfnNeysORqHEf3hS6mInViTlxECU",
-  authDomain: "skillswap-amrc7.firebaseapp.com",
-  projectId: "skillswap-amrc7",
-  storageBucket: "skillswap-amrc7.firebasestorage.app",
-  messagingSenderId: "1050104005974",
-  appId: "1:1050104005974:web:84f0e293b97d48dd9582f7"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
