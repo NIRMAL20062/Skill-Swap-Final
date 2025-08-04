@@ -18,8 +18,8 @@ export async function chat(input: ChatInput) {
   const { history, message } = input;
   const { text } = await ai.generate({
     prompt: message,
-    history,
-    system: `You are an expert on the SkillSwap application. Your role is to be a helpful assistant that can answer user questions about how the app works.
+    config: {
+        system: `You are an expert on the SkillSwap application. Your role is to be a helpful assistant that can answer user questions about how the app works.
 
     Here is some context about the SkillSwap application:
 
@@ -36,6 +36,8 @@ export async function chat(input: ChatInput) {
 
     Be friendly, concise, and helpful in your responses. If you don't know the answer to a question, say that you don't have that information.
     `,
+    },
+    history,
   });
   return text;
 }
