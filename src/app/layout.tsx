@@ -5,8 +5,7 @@ import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
 import Header from "@/components/layout/header";
 import Chatbot from "@/components/features/chatbot";
-import { resetPassword as sendPasswordReset } from '@/lib/auth';
-
+import { AuthProvider } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "SkillSwap",
