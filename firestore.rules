@@ -18,10 +18,15 @@ service cloud.firestore {
 
       // Allow user to update own profile
       // OR allow admin to update any
-      // OR allow a specific coin update during a transaction
-      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
+      // OR allow backend (coin updates only)
+      allow update: if request.auth.uid == userId
+                 || isAdmin(request.auth.uid)
+                 || (
+                      request.resource.data.coins != null &&
+                      resource.data.coins != request.resource.data.coins
+                    );
     }
-    
+
     // SESSIONS
     match /sessions/{sessionId} {
       allow read: if request.auth != null && (
@@ -62,19 +67,11 @@ service cloud.firestore {
                     isAdmin(request.auth.uid)
                  );
 
-      // Transactions are created by the backend logic (in this case, the transaction in firestore.ts)
+      // Allow creation by backend logic (optional: could restrict to admin only)
       allow create: if request.auth != null;
 
       // Disallow updates/deletes
       allow update, delete: if false;
-    }
-
-    // This block is necessary for the transaction in `markSessionAsComplete` to work.
-    // It allows multiple documents to be written in a single transaction.
-    // The security is handled within the client-side transaction logic itself,
-    // which verifies the session state before proceeding.
-    match /{path=**}/documents {
-        allow write: if request.auth != null;
     }
   }
 }
