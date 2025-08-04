@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
 import Header from "@/components/layout/header";
 import { AuthProvider } from "@/lib/auth.tsx";
+import Chatbot from "@/components/features/chatbot";
 
 export const metadata: Metadata = {
   title: "SkillSwap",
@@ -40,6 +41,7 @@ export default function RootLayout({
           <div className="relative flex min-h-screen flex-col">
             <Header />
             <main className="flex-1">{children}</main>
+            <Chatbot />
           </div>
           <Toaster />
         </AuthProvider>
