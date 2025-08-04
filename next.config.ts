@@ -2,6 +2,9 @@
  * @type {import('next').NextConfig}
  */
 
+// Load environment variables from .env file
+require('dotenv').config({ path: './.env' });
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -28,8 +31,5 @@ const nextConfig: NextConfig = {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   },
 };
-
-// Load environment variables from .env file
-require('dotenv').config({ path: './.env' });
 
 export default nextConfig;
