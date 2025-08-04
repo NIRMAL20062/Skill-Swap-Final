@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -37,9 +36,7 @@ SkillSwap is a platform for trading skills, not money. Here are key features:
 
   const {text} = await ai.generate({
     prompt: message,
-    config: {
-      system: systemPrompt,
-    },
+    system: systemPrompt,
     history: history,
   });
 
