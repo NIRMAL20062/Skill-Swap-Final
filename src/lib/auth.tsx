@@ -16,7 +16,7 @@ import {
 } from "firebase/auth";
 import { app } from "./firebase";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { createUserProfile, getUserProfile } from "./firestore";
+import { createUserProfile, getUserProfile, ADMIN_EMAIL } from "./firestore";
 import { FirebaseError } from "firebase/app";
 
 export const auth = getAuth(app);
@@ -29,10 +29,13 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
   
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(userCredential.user);
+
+  const isAdmin = userCredential.user.email === ADMIN_EMAIL;
   
   await createUserProfile(userCredential.user.uid, {
     email: userCredential.user.email!,
     displayName: fullName,
+    admin: isAdmin,
   });
   return userCredential;
 };
@@ -48,10 +51,12 @@ export const signInWithGoogle = async () => {
   
   const profile = await getUserProfile(user.uid);
   if (!profile) {
+    const isAdmin = user.email === ADMIN_EMAIL;
     await createUserProfile(user.uid, {
       email: user.email!,
       displayName: user.displayName || 'New User',
       photoURL: user.photoURL || undefined,
+      admin: isAdmin,
     });
   }
   return result;
