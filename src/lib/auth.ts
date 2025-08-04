@@ -1,7 +1,4 @@
-
 // src/lib/auth.ts
-"use client";
-
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -9,14 +6,11 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut as firebaseSignOut,
-  onAuthStateChanged,
   sendEmailVerification,
   sendPasswordResetEmail,
   fetchSignInMethodsForEmail,
-  type User,
 } from "firebase/auth";
 import { app } from "./firebase";
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { createUserProfile, getUserProfile, ADMIN_EMAIL } from "./firestore";
 import { FirebaseError } from "firebase/app";
 
@@ -69,39 +63,4 @@ export const sendPasswordReset = (email: string) => {
 
 export const signOut = () => {
   return firebaseSignOut(auth);
-};
-
-interface AuthContextType {
-    user: User | null;
-    loading: boolean;
-}
-
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            if (user && !user.emailVerified && user.providerData.some(p => p.providerId === 'password')) {
-                setUser(null);
-            } else {
-                setUser(user);
-            }
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
-    
-    return (
-        <AuthContext.Provider value={{ user, loading }}>
-            {children}
-        </AuthContext.Provider>
-    )
-}
-
-export const useAuth = () => {
-  return useContext(AuthContext);
 };

@@ -4,7 +4,8 @@
 import Link from "next/link";
 import { Handshake, Menu, Coins } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth, signOut } from "@/lib/auth";
+import { useAuth } from "@/lib/auth.tsx";
+import { signOut } from "@/lib/auth.ts";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
