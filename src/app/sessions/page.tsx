@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History, Link as LinkIcon, Save, Star, ThumbsUp, Send } from "lucide-react";
+import { CalendarCheck, Clock, Check, X, MessageSquare, Video, History, Link as LinkIcon, Save, Star, ThumbsUp, Send, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +30,7 @@ export default function SessionsPage() {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [isCompleting, setIsCompleting] = useState<string | null>(null); // Track which session is being completed
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
 
   const fetchSessions = async () => {
@@ -101,13 +102,20 @@ export default function SessionsPage() {
 
   const handleMarkComplete = async (session: Session) => {
       if (!user) return;
+      setIsCompleting(session.id);
       try {
         await markSessionAsComplete(session.id, user.uid);
-        toast({ title: "Session Updated", description: "Your action has been recorded. The session will be marked 'completed' once both parties have confirmed."});
-        // Refetch sessions to get the latest status
+        const bothCompleted = (session.mentorId === user.uid && session.menteeCompleted) || (session.menteeId === user.uid && session.mentorCompleted);
+        if (bothCompleted) {
+             toast({ title: "Session Complete!", description: "The coin transaction has been processed."});
+        } else {
+             toast({ title: "Session Updated", description: "Your action has been recorded. Waiting for the other party."});
+        }
         await fetchSessions();
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "Failed to mark complete.", variant: "destructive"});
+      } finally {
+        setIsCompleting(null);
       }
   }
 
@@ -135,7 +143,7 @@ export default function SessionsPage() {
       });
 
       setSessions(prev => prev.map(s => s.id === currentSessionForFeedback.id ? {...s, feedbackSubmitted: true} : s));
-      toast({ title: "Success", description: "Your feedback has been submitted! If both parties have marked complete, the transaction is now processed." });
+      toast({ title: "Success", description: "Your feedback has been submitted!" });
       setFeedbackModalOpen(false);
       await fetchSessions(); // Refresh data
     } catch (error: any) {
@@ -150,7 +158,7 @@ export default function SessionsPage() {
       const isMentor = session.mentorId === user?.uid;
       const otherPartyName = isMentor ? session.menteeName : session.mentorName;
       const userHasCompleted = isMentor ? session.mentorCompleted : session.menteeCompleted;
-      const bothCompleted = session.mentorCompleted && session.menteeCompleted;
+      const sessionIsCompleting = isCompleting === session.id;
 
       return (
         <Card key={session.id} className="mb-4">
@@ -195,8 +203,9 @@ export default function SessionsPage() {
                  <Button asChild>
                     <Link href={session.meetingLink} target="_blank"><Video className="mr-2 h-4 w-4" /> Join Meet</Link>
                  </Button>
-                 <Button variant={userHasCompleted ? "secondary" : "default"} onClick={() => handleMarkComplete(session)} disabled={userHasCompleted}>
-                    {userHasCompleted ? <><Check className="mr-2 h-4 w-4" /> You've marked as complete</> : <><ThumbsUp className="mr-2 h-4 w-4"/> Mark as Complete</>}
+                 <Button variant={userHasCompleted ? "secondary" : "default"} onClick={() => handleMarkComplete(session)} disabled={userHasCompleted || sessionIsCompleting}>
+                    {sessionIsCompleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : userHasCompleted ? <Check className="mr-2 h-4 w-4" /> : <ThumbsUp className="mr-2 h-4 w-4"/>}
+                    {sessionIsCompleting ? "Processing..." : userHasCompleted ? "You've marked as complete" : "Mark as Complete"}
                  </Button>
                </div>
             )}
@@ -204,18 +213,14 @@ export default function SessionsPage() {
                 <p className="text-muted-foreground">{session.meetingLink ? "A meeting link has been provided." : "Waiting for the mentor to provide a meeting link."}</p>
              )}
 
-            {session.status === 'accepted' && bothCompleted && !session.feedbackSubmitted && !isMentor && (
-                 <div className="p-4 border rounded-lg bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 space-y-2">
-                    <h4 className="font-semibold">Action Required</h4>
-                    <p className="text-sm">Both you and the mentor have marked this session as complete. Please leave feedback to finalize the session and process the coin transaction.</p>
-                    <Button onClick={() => openFeedbackModal(session)} variant="secondary"><Star className="mr-2 h-4 w-4" /> Leave Feedback</Button>
-                </div>
-            )}
-
           </CardContent>
           <CardFooter className="flex flex-col items-start gap-2">
             {session.status === 'completed' && !session.feedbackSubmitted && !isMentor && (
-                <Button onClick={() => openFeedbackModal(session)}><Star className="mr-2 h-4 w-4" /> Leave Feedback</Button>
+                 <div className="p-4 border rounded-lg bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 space-y-2 w-full">
+                    <h4 className="font-semibold">Action Required</h4>
+                    <p className="text-sm">Please leave feedback to help other users and improve the community.</p>
+                    <Button onClick={() => openFeedbackModal(session)} variant="secondary"><Star className="mr-2 h-4 w-4" /> Leave Feedback</Button>
+                </div>
             )}
             {session.status === 'completed' && session.feedbackSubmitted && !isMentor && (
                 <p className="text-sm text-green-600 flex items-center"><Check className="mr-2 h-4 w-4"/> Feedback submitted. Thank you!</p>
@@ -269,7 +274,7 @@ export default function SessionsPage() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Leave Feedback for {currentSessionForFeedback?.mentorName}</DialogTitle>
-                <DialogDescription>Your feedback helps other users find great mentors. Submitting this will complete the session.</DialogDescription>
+                <DialogDescription>Your feedback helps other users find great mentors.</DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
                 <div>

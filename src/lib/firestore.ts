@@ -184,7 +184,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
     return runTransaction(db, async (transaction) => {
         const sessionDoc = await transaction.get(sessionRef);
         if (!sessionDoc.exists()) {
-            throw "Session does not exist!";
+            throw new Error("Session does not exist!");
         }
 
         const sessionData = sessionDoc.data() as Session;
@@ -199,7 +199,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
         const bothPartiesCompleted = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
         
-        if (bothPartiesCompleted && sessionData.feedbackSubmitted) {
+        if (bothPartiesCompleted) {
             updateData.status = 'completed';
             
             // Perform coin distribution
@@ -209,7 +209,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
             const menteeRef = doc(db, 'users', menteeId);
             const mentorRef = doc(db, 'users', mentorId);
-            const adminQuery = query(collection(db, 'users'), where('email', '==', ADMIN_EMAIL));
+            const adminQuery = query(collection(db, 'users'), where('admin', '==', true));
             
             const adminSnapshot = await getDocs(adminQuery);
             if (adminSnapshot.empty) {
@@ -240,9 +240,8 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
             // 4. Log transactions
             const batch = writeBatch(db);
-            const description = `Session with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
+            const description = `Session for ${sessionData.skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
             
-            // Mentee debit log
             const menteeTxRef = doc(collection(db, "transactions"));
             batch.set(menteeTxRef, {
                 userId: menteeId,
@@ -253,7 +252,6 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
                 timestamp: serverTimestamp(),
             });
 
-             // Mentor credit log
             const mentorTxRef = doc(collection(db, "transactions"));
             batch.set(mentorTxRef, {
                 userId: mentorId,
@@ -264,7 +262,6 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
                 timestamp: serverTimestamp(),
             });
 
-             // Admin credit log
             const adminTxRef = doc(collection(db, "transactions"));
             batch.set(adminTxRef, {
                 userId: adminDoc.id,
@@ -274,17 +271,18 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
                 relatedSessionId: sessionId,
                 timestamp: serverTimestamp(),
             });
-
-            // Committing the batch inside a transaction is not possible.
-            // But we can commit it after the transaction.
-            // This is a limitation of client-side operations.
-            await batch.commit(); 
+            
+            // This needs to be committed outside the transaction.
+            // But we can stage it here. It's a client-side limitation.
+            // For production, this would be a single Cloud Function call.
+            await batch.commit();
         }
         
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
         return { ...sessionData, ...updateData };
     });
 };
+
 
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     const reviewsCollection = collection(db, 'reviews');
@@ -298,15 +296,16 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     return reviews;
 }
 
-// New function for submitting a review
-// This will now be handled by a background cloud function.
-// The client will just write the review and update the session.
 export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
-    const reviewCollection = collection(db, 'reviews');
-    const sessionRef = doc(db, 'sessions', reviewData.sessionId);
-    
-    // We'll run a transaction to ensure atomicity
     return runTransaction(db, async (transaction) => {
+        const sessionRef = doc(db, 'sessions', reviewData.sessionId);
+        
+        // Check if feedback has already been submitted
+        const sessionDoc = await transaction.get(sessionRef);
+        if (sessionDoc.exists() && sessionDoc.data().feedbackSubmitted) {
+            throw new Error("Feedback has already been submitted for this session.");
+        }
+        
         // Create the new review document. The background function will pick this up.
         const newReviewRef = doc(collection(db, 'reviews')); // auto-generate ID
         transaction.set(newReviewRef, {
@@ -315,21 +314,10 @@ export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>)
         });
         
         // Mark the session as feedback submitted
-        transaction.update(sessionRef, { feedbackSubmitted: true });
-
-        // Trigger completion check
-        const sessionDoc = await transaction.get(sessionRef);
-        const sessionData = sessionDoc.data() as Session;
-
-        if (sessionData.mentorCompleted && sessionData.menteeCompleted) {
-            // All conditions met, but we can't call another transaction inside this one.
-            // We need to re-fetch and run the completion logic.
-            // This is a limitation of doing this on the client.
-            // The call below will start a new transaction.
-            await markSessionAsComplete(reviewData.sessionId, reviewData.menteeId);
-        }
+        transaction.update(sessionRef, { feedbackSubmitted: true, updatedAt: serverTimestamp() });
     });
 };
+
 
 export const getUserTransactions = async (userId: string): Promise<Transaction[]> => {
     const transactionsCollection = collection(db, 'transactions');

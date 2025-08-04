@@ -17,13 +17,10 @@ import {
 } from "firebase/auth";
 import { app } from "./firebase";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { createUserProfile, getUserProfile } from "./firestore";
+import { createUserProfile, getUserProfile, ADMIN_EMAIL } from "./firestore";
 import { FirebaseError } from "firebase/app";
 
 export const auth = getAuth(app);
-
-// The email for the admin user
-export const ADMIN_EMAIL = 'kumar.nirmal2608@gmail.com';
 
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const existingMethods = await fetchSignInMethodsForEmail(auth, email);
@@ -87,7 +84,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+            if (user && !user.emailVerified && user.providerData.some(p => p.providerId === 'password')) {
+                setUser(null);
+            } else {
+                setUser(user);
+            }
             setLoading(false);
         });
 
