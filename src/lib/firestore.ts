@@ -189,7 +189,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
         const sessionData = sessionDoc.data() as Session;
         const isMentor = sessionData.mentorId === userId;
         
-        const updateData: Partial<Session> = {};
+        let updateData: Partial<Session> = {};
         if (isMentor) {
             updateData.mentorCompleted = true;
         } else {
@@ -198,10 +198,10 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
         const bothPartiesCompleted = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
         
+        // This is the key change: only proceed with coin distribution if the *other* party has already marked complete.
         if (bothPartiesCompleted) {
             updateData.status = 'completed';
             
-            // Perform coin distribution
             const { menteeId, mentorId, cost, duration } = sessionData;
             const mentorShare = duration * 8;
             const adminShare = cost - mentorShare;
@@ -211,16 +211,12 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             const adminQuery = query(collection(db, 'users'), where('admin', '==', true));
             
             const adminSnapshot = await getDocs(adminQuery);
-            if (adminSnapshot.empty) {
-                throw new Error("Admin account not found.");
-            }
+            if (adminSnapshot.empty) throw new Error("Admin account not found.");
             const adminRef = adminSnapshot.docs[0].ref;
 
-            const [menteeDoc, mentorDoc, adminDoc] = await Promise.all([
-                transaction.get(menteeRef),
-                transaction.get(mentorRef),
-                transaction.get(adminRef)
-            ]);
+            const menteeDoc = await transaction.get(menteeRef);
+            const mentorDoc = await transaction.get(mentorRef);
+            const adminDoc = await transaction.get(adminRef);
 
             if (!menteeDoc.exists() || !mentorDoc.exists() || !adminDoc.exists()) {
                 throw new Error("One or more user profiles not found for transaction.");
@@ -230,50 +226,33 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             const mentorData = mentorDoc.data() as UserProfile;
             const adminData = adminDoc.data() as UserProfile;
             
-            const batch = writeBatch(db);
-
-            // 1. Deduct from mentee
+            // Perform all writes within the transaction
             transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
-            // 2. Add to mentor
             transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
-            // 3. Add to admin
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
-            // 4. Log transactions
-            const description = `Session for ${sessionData.skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
+            const description = `Session for ${sessionData.skill} with ${sessionData.mentorName}`;
             
             const menteeTxRef = doc(collection(db, "transactions"));
-            batch.set(menteeTxRef, {
-                userId: menteeId,
-                type: 'debit',
-                amount: cost,
-                description,
-                relatedSessionId: sessionId,
-                timestamp: serverTimestamp(),
+            transaction.set(menteeTxRef, {
+                userId: menteeId, type: 'debit', amount: cost, description,
+                relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const mentorTxRef = doc(collection(db, "transactions"));
-            batch.set(mentorTxRef, {
-                userId: mentorId,
-                type: 'credit',
-                amount: mentorShare,
-                description,
-                relatedSessionId: sessionId,
-                timestamp: serverTimestamp(),
+            transaction.set(mentorTxRef, {
+                userId: mentorId, type: 'credit', amount: mentorShare, description,
+                relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const adminTxRef = doc(collection(db, "transactions"));
-            batch.set(adminTxRef, {
-                userId: adminDoc.id,
-                type: 'credit',
-                amount: adminShare,
-                description: `Admin fee for session: ${sessionId}`,
-                relatedSessionId: sessionId,
-                timestamp: serverTimestamp(),
+            transaction.set(adminTxRef, {
+                userId: adminDoc.id, type: 'credit', amount: adminShare, description: `Admin fee for session: ${sessionId}`,
+                relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
-            await batch.commit();
         }
         
+        // Always update the session document with the new completion status.
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
         return { ...sessionData, ...updateData };
     });
@@ -296,20 +275,17 @@ export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>)
     return runTransaction(db, async (transaction) => {
         const sessionRef = doc(db, 'sessions', reviewData.sessionId);
         
-        // Check if feedback has already been submitted
         const sessionDoc = await transaction.get(sessionRef);
         if (sessionDoc.exists() && sessionDoc.data().feedbackSubmitted) {
             throw new Error("Feedback has already been submitted for this session.");
         }
         
-        // Create the new review document. The background function will pick this up.
-        const newReviewRef = doc(collection(db, 'reviews')); // auto-generate ID
+        const newReviewRef = doc(collection(db, 'reviews')); 
         transaction.set(newReviewRef, {
             ...reviewData,
             createdAt: serverTimestamp(),
         });
         
-        // Mark the session as feedback submitted
         transaction.update(sessionRef, { feedbackSubmitted: true, updatedAt: serverTimestamp() });
     });
 };
