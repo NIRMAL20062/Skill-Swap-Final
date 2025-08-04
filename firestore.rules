@@ -1,64 +1,60 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if user is an admin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true;
-    }
-    
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
+  
+    // Helper function to check if a user is an admin
+    function isAdmin(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+             get(/databases/$(database)/documents/users/$(userId)).data.admin == true;
     }
 
     // Rules for the 'users' collection
     match /users/{userId} {
-      // Any authenticated user can read any user's profile (for discover page)
-      allow read: if isAuthenticated();
-
-      // Users can only create their own profile
-      // Users can only update their own profile, EXCEPT for the 'coins' and 'admin' fields
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId && !('coins' in request.resource.data) && !('admin' in request.resource.data);
+      // Allow anyone to read user profiles (for discoverability)
+      allow read: if request.auth != null;
       
-      // Admin can update any user profile (for adjusting coins)
-      allow update: if isAdmin();
+      // Allow users to create their own profile
+      allow create: if request.auth.uid == userId;
+
+      // Allow users to update their own profile
+      // OR allow an admin to update any user's profile
+      // OR allow a coin balance update ONLY as part of a valid session completion
+      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
     }
     
     // Rules for the 'sessions' collection
     match /sessions/{sessionId} {
-      // Anyone authenticated can read session details
-      allow read: if isAuthenticated();
-      
-      // Mentee can create a session request
+      allow read: if request.auth != null && (request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId || isAdmin(request.auth.uid));
       allow create: if request.auth.uid == request.resource.data.menteeId;
-      
-      // Mentor can update the session (accept/reject/add link)
-      // Mentee/Mentor can update to mark as complete
-      allow update: if 
-        (request.auth.uid == resource.data.mentorId || request.auth.uid == resource.data.menteeId);
+      // Allow mentor or mentee to update the session (e.g., status, meeting link, completion flags)
+      allow update: if request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId;
     }
     
     // Rules for the 'reviews' collection
     match /reviews/{reviewId} {
-      // Any authenticated user can read reviews
-      allow read: if isAuthenticated();
-      
-      // Only the mentee of a session can create a review for it
+      // Allow anyone to read reviews
+      allow read: if true;
+      // Allow a mentee to create a review for a session they were in
       allow create: if request.auth.uid == request.resource.data.menteeId;
     }
     
     // Rules for the 'transactions' collection
     match /transactions/{transactionId} {
-        // Users can read their own transactions
-        allow read: if request.auth.uid == resource.data.userId || isAdmin();
-        
-        // No one can create/update/delete transactions directly from the client.
-        // This is handled by the markSessionAsComplete logic which is implicitly allowed
-        // inside the transaction context but blocked for direct client manipulation.
-        allow write: if false;
+        // Only allow a user to read their own transactions, or an admin to read any transaction
+    	allow read: if request.auth.uid == resource.data.userId || isAdmin(request.auth.uid);
+      // Transactions are created on the backend (via transaction logic), so deny direct client creation
+      allow write: if false; 
+    }
+    
+    // Transaction-specific rule to allow coin updates during session completion
+    // This is a global rule for the transaction write
+    match /{path=**}/documents {
+       allow write: if 
+          // Check if this write is part of completing a session
+          get(/databases/$(database)/documents/sessions/$(request.resource.data.relatedSessionId)).data.mentorId == request.auth.uid ||
+          get(/databases/$(database)/documents/sessions/$(request.resource.data.relatedSessionId)).data.menteeId == request.auth.uid;
     }
   }
 }

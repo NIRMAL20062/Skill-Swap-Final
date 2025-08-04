@@ -191,7 +191,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
         const sessionData = sessionDoc.data() as Session;
         if (sessionData.status === 'completed') {
-            return sessionData; // Already completed, do nothing.
+            return sessionData; 
         }
 
         const isMentor = sessionData.mentorId === userId;
@@ -225,9 +225,11 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             if (adminSnapshot.empty) throw new Error("Admin account not found.");
             const adminRef = adminSnapshot.docs[0].ref;
 
-            const menteeDoc = await transaction.get(menteeRef);
-            const mentorDoc = await transaction.get(mentorRef);
-            const adminDoc = await transaction.get(adminRef);
+            const [menteeDoc, mentorDoc, adminDoc] = await Promise.all([
+              transaction.get(menteeRef),
+              transaction.get(mentorRef),
+              transaction.get(adminRef)
+            ]);
 
             if (!menteeDoc.exists() || !mentorDoc.exists() || !adminDoc.exists()) {
                 throw new Error("One or more user profiles not found for transaction.");
@@ -241,7 +243,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
-            // Also create the transaction logs within the same transaction
+            // Create transaction logs
             const description = `Session for ${skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
             
             const menteeTxRef = doc(collection(db, "transactions"));
