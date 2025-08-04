@@ -239,11 +239,10 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
             // 4. Log transactions
-            const batch = writeBatch(db);
             const description = `Session for ${sessionData.skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
             
             const menteeTxRef = doc(collection(db, "transactions"));
-            batch.set(menteeTxRef, {
+            transaction.set(menteeTxRef, {
                 userId: menteeId,
                 type: 'debit',
                 amount: cost,
@@ -253,7 +252,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             });
 
             const mentorTxRef = doc(collection(db, "transactions"));
-            batch.set(mentorTxRef, {
+            transaction.set(mentorTxRef, {
                 userId: mentorId,
                 type: 'credit',
                 amount: mentorShare,
@@ -263,7 +262,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             });
 
             const adminTxRef = doc(collection(db, "transactions"));
-            batch.set(adminTxRef, {
+            transaction.set(adminTxRef, {
                 userId: adminDoc.id,
                 type: 'credit',
                 amount: adminShare,
@@ -271,11 +270,6 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
                 relatedSessionId: sessionId,
                 timestamp: serverTimestamp(),
             });
-            
-            // This needs to be committed outside the transaction.
-            // But we can stage it here. It's a client-side limitation.
-            // For production, this would be a single Cloud Function call.
-            await batch.commit();
         }
         
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
