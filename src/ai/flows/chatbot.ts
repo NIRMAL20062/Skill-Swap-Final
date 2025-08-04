@@ -11,7 +11,7 @@ import { z } from 'genkit';
 
 // Define the schema for a single message in the chat history.
 const ChatMessageSchema = z.object({
-  role: z.enum(['user', 'model']),
+  role: z.enum(['user', 'model', 'system', 'tool']), // Include all valid roles
   content: z.array(z.object({ text: z.string() })),
 });
 
@@ -33,15 +33,18 @@ SkillSwap is a platform for trading skills, not money. Here are key features:
 - Profile reviews, AI skill suggestions, etc.
 `;
 
-  // Convert history to the expected format and include system prompt and user message
-  const messages = [
-    { role: 'system', content: [{ text: systemPrompt }] },
-    ...history, // Assuming history is already in the correct format
-    { role: 'user', content: [{ text: message }] },
-  ];
+  // Combine system prompt, history, and user message into a single prompt string
+  // or adjust based on the library's expected format
+  const prompt = `
+${systemPrompt}
+
+${history.map((msg) => `${msg.role}: ${msg.content[0].text}`).join('\n')}
+
+user: ${message}
+`;
 
   const { text } = await ai.generate({
-    messages, // Pass messages array instead of separate prompt, system, and history
+    prompt, // Use a single prompt string or adjust to match library's history format
   });
 
   return text;
