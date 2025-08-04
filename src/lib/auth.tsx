@@ -1,7 +1,7 @@
 // src/lib/auth.tsx
 "use client";
 
-import { auth } from "./auth.ts";
+import { auth } from "./auth";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
