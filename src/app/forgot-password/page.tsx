@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KeyRound } from "lucide-react";
-import { sendPasswordReset } from "@/lib/auth.ts";
+import { sendPasswordReset } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import LoadingSpinner from "@/components/layout/loading-spinner";

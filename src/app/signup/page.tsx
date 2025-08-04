@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Handshake } from "lucide-react";
-import { signUpWithEmail, signInWithGoogle } from "@/lib/auth.ts";
+import { signUpWithEmail, signInWithGoogle } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { FirebaseError } from "firebase/app";
