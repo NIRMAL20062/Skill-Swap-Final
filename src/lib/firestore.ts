@@ -1,3 +1,4 @@
+
 // src/lib/firestore.ts
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy, getDocsFromCache } from "firebase/firestore"; 
 import { db } from "./firebase";
@@ -190,13 +191,17 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
         const sessionData = sessionDoc.data() as Session;
         if (sessionData.status === 'completed') {
-            // Already completed, do nothing.
-            return sessionData;
+            return sessionData; // Already completed, do nothing.
         }
 
         const isMentor = sessionData.mentorId === userId;
+        const currentUserHasCompleted = isMentor ? sessionData.mentorCompleted : sessionData.menteeCompleted;
+
+        if (currentUserHasCompleted) {
+             throw new Error("You have already marked this session as complete.");
+        }
         
-        let updateData: Partial<Session> = {};
+        const updateData: Partial<Session> = {};
         if (isMentor) {
             updateData.mentorCompleted = true;
         } else {
@@ -232,13 +237,12 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             const mentorData = mentorDoc.data() as UserProfile;
             const adminData = adminDoc.data() as UserProfile;
             
-            // Perform all writes within the transaction
             transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
             transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
             // Also create the transaction logs within the same transaction
-            const description = `Session for ${skill} with ${sessionData.mentorName}`;
+            const description = `Session for ${skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
             
             const menteeTxRef = doc(collection(db, "transactions"));
             transaction.set(menteeTxRef, {
