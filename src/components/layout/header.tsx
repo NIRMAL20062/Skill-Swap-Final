@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { Handshake, Menu } from "lucide-react";
+import { Handshake, Menu, Coins } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth, signOut } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -22,18 +22,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useEffect, useState } from "react";
+import { getUserProfile, UserProfile } from "@/lib/firestore";
+import { Skeleton } from "../ui/skeleton";
 
 
 const baseNavLinks = [
     { href: "/discover", label: "Discover" },
-    { href: "#", label: "Help" },
+    { href: "/leaderboard", label: "Leaderboard"},
 ];
 
 const authNavLinks = [
     { href: "/dashboard", label: "Dashboard" },
     { href: "/discover", label: "Discover" },
     { href: "/sessions", label: "Manage Sessions" },
-    { href: "#", label: "Help" },
+    { href: "/leaderboard", label: "Leaderboard"},
 ];
 
 
@@ -41,10 +43,23 @@ export default function Header() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
+  
+  useEffect(() => {
+    async function fetchProfile() {
+      if (user) {
+        const userProfile = await getUserProfile(user.uid);
+        setProfile(userProfile);
+      } else {
+        setProfile(null);
+      }
+    }
+    fetchProfile();
+  }, [user]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -55,7 +70,16 @@ export default function Header() {
   const logoHref = user ? "/dashboard" : "/";
   
   if (!isMounted) {
-    return null;
+    return (
+        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="container flex h-16 items-center">
+                <Skeleton className="h-8 w-32" />
+                <div className="flex flex-1 items-center justify-end space-x-4">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                </div>
+            </div>
+      </header>
+    );
   }
 
   return (
@@ -128,6 +152,13 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-end space-x-4">
             {!loading && (
                 user ? (
+                    <>
+                    <Link href="/wallet">
+                        <Button variant="outline" className="rounded-full">
+                            <Coins className="h-4 w-4 text-yellow-400 mr-2" />
+                            {profile ? profile.coins : '...'}
+                        </Button>
+                    </Link>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -159,6 +190,7 @@ export default function Header() {
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                    </>
                 ) : (
                     <div className="flex items-center space-x-2">
                         <Button variant="ghost" asChild>

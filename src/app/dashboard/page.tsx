@@ -52,7 +52,7 @@ const featureCards = [
     title: "Leaderboard",
     description: "See the top-rated users.",
     icon: <Trophy className="w-8 h-8" />,
-    href: "#",
+    href: "/leaderboard",
   },
   {
     title: "Admin Dashboard",

@@ -1,10 +1,10 @@
 
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy, getDocsFromCache } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy, limit } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 // The email for the admin user
-export const ADMIN_EMAIL = 'kumar.nirmal2608@gmail.com';
+export const ADMIN_EMAIL = 'admin@skillswap.com';
 
 export interface UserProfile {
   uid: string;
@@ -321,4 +321,13 @@ export const adjustUserCoins = async (userId: string, newCoinBalance: number) =>
         coins: newCoinBalance,
         updatedAt: serverTimestamp(),
     });
+}
+
+// Get top users for leaderboard
+export const getLeaderboard = async (count: number): Promise<UserProfile[]> => {
+    const usersCollection = collection(db, "users");
+    const q = query(usersCollection, orderBy("rating", "desc"), limit(count));
+    const querySnapshot = await getDocs(q);
+    const usersList = querySnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
+    return usersList;
 }

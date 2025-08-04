@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -16,15 +17,8 @@ service cloud.firestore {
       // Only user can create their own profile
       allow create: if request.auth.uid == userId;
 
-      // Allow user to update own profile
-      // OR allow admin to update any
-      // OR allow backend (coin updates only)
-      allow update: if request.auth.uid == userId
-                 || isAdmin(request.auth.uid)
-                 || (
-                      request.resource.data.coins != null &&
-                      resource.data.coins != request.resource.data.coins
-                    );
+      // Allow user to update own profile OR allow admin to update any
+      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
     }
 
     // SESSIONS
@@ -67,9 +61,9 @@ service cloud.firestore {
                     isAdmin(request.auth.uid)
                  );
 
-      // Allow creation by backend logic (optional: could restrict to admin only)
-      allow create: if request.auth != null;
-
+      // Disallow client creation
+      allow create: if false;
+      
       // Disallow updates/deletes
       allow update, delete: if false;
     }
