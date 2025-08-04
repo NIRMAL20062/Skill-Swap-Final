@@ -22,6 +22,9 @@ import { FirebaseError } from "firebase/app";
 
 export const auth = getAuth(app);
 
+// The email for the admin user
+export const ADMIN_EMAIL = 'kumar.nirmal2608@gmail.com';
+
 export const signUpWithEmail = async (email: string, password: string, fullName: string) => {
   const existingMethods = await fetchSignInMethodsForEmail(auth, email);
   if (existingMethods.length > 0) {
@@ -30,9 +33,13 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
   
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(userCredential.user);
+
+  const isAdmin = userCredential.user.email === ADMIN_EMAIL;
+  
   await createUserProfile(userCredential.user.uid, {
     email: userCredential.user.email!,
     displayName: fullName,
+    admin: isAdmin,
   });
   return userCredential;
 };
@@ -48,9 +55,12 @@ export const signInWithGoogle = async () => {
   
   const profile = await getUserProfile(user.uid);
   if (!profile) {
+    const isAdmin = user.email === ADMIN_EMAIL;
     await createUserProfile(user.uid, {
       email: user.email!,
       displayName: user.displayName || 'New User',
+      photoURL: user.photoURL || undefined,
+      admin: isAdmin,
     });
   }
   return result;

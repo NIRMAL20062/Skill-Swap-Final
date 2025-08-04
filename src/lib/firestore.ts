@@ -1,7 +1,10 @@
 
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy } from "firebase/firestore"; 
 import { db } from "./firebase";
+
+// The email for the admin user
+export const ADMIN_EMAIL = 'kumar.nirmal2608@gmail.com';
 
 export interface UserProfile {
   uid: string;
@@ -19,6 +22,8 @@ export interface UserProfile {
   rating?: number;
   reviewCount?: number;
   totalRating?: number; // Sum of all ratings received
+  coins?: number;
+  admin?: boolean;
 }
 
 export interface Session {
@@ -29,6 +34,8 @@ export interface Session {
   mentorName: string;
   skill: string;
   dateTime: string;
+  duration: number; // in hours
+  cost: number; // in coins
   status: 'pending' | 'accepted' | 'rejected' | 'completed';
   createdAt?: any;
   updatedAt?: any;
@@ -49,10 +56,21 @@ export interface Review {
     createdAt: Timestamp;
 }
 
+export interface Transaction {
+    id?: string;
+    userId: string;
+    type: 'credit' | 'debit';
+    amount: number;
+    description: string;
+    relatedSessionId?: string;
+    timestamp: any;
+}
+
 
 // Function to create a user profile document
 export const createUserProfile = async (uid: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", uid);
+  const isAdmin = data.email === ADMIN_EMAIL;
   return setDoc(userRef, {
     uid,
     ...data,
@@ -62,6 +80,8 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
     rating: 0,
     reviewCount: 0,
     totalRating: 0,
+    coins: 100, // Welcome bonus
+    admin: isAdmin,
   }, { merge: true });
 };
 
@@ -71,7 +91,8 @@ export const getUserProfile = async (uid:string): Promise<UserProfile | null> =>
   const docSnap = await getDoc(userRef);
 
   if (docSnap.exists()) {
-    return docSnap.data() as UserProfile;
+    const data = docSnap.data();
+    return { ...data, uid: docSnap.id } as UserProfile;
   } else {
     return null;
   }
@@ -176,47 +197,156 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             updateData.menteeCompleted = true;
         }
 
-        // Check if the other party has already marked it as complete
-        const bothMarked = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
-
-        if (bothMarked) {
+        const bothPartiesCompleted = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
+        
+        if (bothPartiesCompleted && sessionData.feedbackSubmitted) {
             updateData.status = 'completed';
+            
+            // Perform coin distribution
+            const { menteeId, mentorId, cost, duration } = sessionData;
+            const mentorShare = duration * 8;
+            const adminShare = cost - mentorShare;
+
+            const menteeRef = doc(db, 'users', menteeId);
+            const mentorRef = doc(db, 'users', mentorId);
+            const adminQuery = query(collection(db, 'users'), where('email', '==', ADMIN_EMAIL));
+            
+            const adminSnapshot = await getDocs(adminQuery);
+            if (adminSnapshot.empty) {
+                throw new Error("Admin account not found.");
+            }
+            const adminRef = adminSnapshot.docs[0].ref;
+
+            const [menteeDoc, mentorDoc, adminDoc] = await Promise.all([
+                transaction.get(menteeRef),
+                transaction.get(mentorRef),
+                transaction.get(adminRef)
+            ]);
+
+            if (!menteeDoc.exists() || !mentorDoc.exists() || !adminDoc.exists()) {
+                throw new Error("One or more user profiles not found for transaction.");
+            }
+
+            const menteeData = menteeDoc.data() as UserProfile;
+            const mentorData = mentorDoc.data() as UserProfile;
+            const adminData = adminDoc.data() as UserProfile;
+
+            // 1. Deduct from mentee
+            transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
+            // 2. Add to mentor
+            transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
+            // 3. Add to admin
+            transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
+
+            // 4. Log transactions
+            const batch = writeBatch(db);
+            const description = `Session with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
+            
+            // Mentee debit log
+            const menteeTxRef = doc(collection(db, "transactions"));
+            batch.set(menteeTxRef, {
+                userId: menteeId,
+                type: 'debit',
+                amount: cost,
+                description,
+                relatedSessionId: sessionId,
+                timestamp: serverTimestamp(),
+            });
+
+             // Mentor credit log
+            const mentorTxRef = doc(collection(db, "transactions"));
+            batch.set(mentorTxRef, {
+                userId: mentorId,
+                type: 'credit',
+                amount: mentorShare,
+                description,
+                relatedSessionId: sessionId,
+                timestamp: serverTimestamp(),
+            });
+
+             // Admin credit log
+            const adminTxRef = doc(collection(db, "transactions"));
+            batch.set(adminTxRef, {
+                userId: adminDoc.id,
+                type: 'credit',
+                amount: adminShare,
+                description: `Admin fee for session: ${sessionId}`,
+                relatedSessionId: sessionId,
+                timestamp: serverTimestamp(),
+            });
+
+            // Committing the batch inside a transaction is not possible.
+            // But we can commit it after the transaction.
+            // This is a limitation of client-side operations.
+            await batch.commit(); 
         }
         
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
-
         return { ...sessionData, ...updateData };
     });
 };
 
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
     const reviewsCollection = collection(db, 'reviews');
-    const q = query(reviewsCollection, where('mentorId', '==', userId));
+    const q = query(reviewsCollection, where('mentorId', '==', userId), orderBy('createdAt', 'desc'));
     const querySnapshot = await getDocs(q);
     
     const reviews: Review[] = [];
     querySnapshot.forEach((doc) => {
         reviews.push({ id: doc.id, ...doc.data() } as Review);
     });
-    return reviews.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+    return reviews;
 }
 
 // New function for submitting a review
 // This will now be handled by a background cloud function.
 // The client will just write the review and update the session.
 export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
-  const reviewCollection = collection(db, 'reviews');
-  const sessionRef = doc(db, 'sessions', reviewData.sessionId);
-  
-  return runTransaction(db, async (transaction) => {
-    // 1. Create the new review document. The background function will pick this up.
-    const newReviewRef = doc(collection(db, 'reviews')); // auto-generate ID
-    transaction.set(newReviewRef, {
-      ...reviewData,
-      createdAt: serverTimestamp(),
-    });
+    const reviewCollection = collection(db, 'reviews');
+    const sessionRef = doc(db, 'sessions', reviewData.sessionId);
     
-    // 2. Mark the session as feedback submitted
-    transaction.update(sessionRef, { feedbackSubmitted: true });
-  });
+    // We'll run a transaction to ensure atomicity
+    return runTransaction(db, async (transaction) => {
+        // Create the new review document. The background function will pick this up.
+        const newReviewRef = doc(collection(db, 'reviews')); // auto-generate ID
+        transaction.set(newReviewRef, {
+            ...reviewData,
+            createdAt: serverTimestamp(),
+        });
+        
+        // Mark the session as feedback submitted
+        transaction.update(sessionRef, { feedbackSubmitted: true });
+
+        // Trigger completion check
+        const sessionDoc = await transaction.get(sessionRef);
+        const sessionData = sessionDoc.data() as Session;
+
+        if (sessionData.mentorCompleted && sessionData.menteeCompleted) {
+            // All conditions met, but we can't call another transaction inside this one.
+            // We need to re-fetch and run the completion logic.
+            // This is a limitation of doing this on the client.
+            // The call below will start a new transaction.
+            await markSessionAsComplete(reviewData.sessionId, reviewData.menteeId);
+        }
+    });
 };
+
+export const getUserTransactions = async (userId: string): Promise<Transaction[]> => {
+    const transactionsCollection = collection(db, 'transactions');
+    const q = query(transactionsCollection, where('userId', '==', userId), orderBy('timestamp', 'desc'));
+    const querySnapshot = await getDocs(q);
+
+    const transactions: Transaction[] = [];
+    querySnapshot.forEach((doc) => {
+        transactions.push({ id: doc.id, ...doc.data() } as Transaction);
+    });
+    return transactions;
+}
+
+export const adjustUserCoins = async (userId: string, newCoinBalance: number) => {
+    const userRef = doc(db, 'users', userId);
+    return updateDoc(userRef, {
+        coins: newCoinBalance,
+        updatedAt: serverTimestamp(),
+    });
+}

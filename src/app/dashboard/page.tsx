@@ -46,7 +46,7 @@ const featureCards = [
     title: "My Wallet",
     description: "Check your SkillCoin balance.",
     icon: <Wallet className="w-8 h-8" />,
-    href: "#",
+    href: "/wallet",
   },
   {
     title: "Leaderboard",
@@ -59,6 +59,7 @@ const featureCards = [
     description: "Manage users and settings.",
     icon: <Shield className="w-8 h-8" />,
     href: "/admin",
+    adminOnly: true,
   },
 ];
 
@@ -79,10 +80,15 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const userProfile = await getUserProfile(user.uid);
-        if (userProfile && userProfile.profileComplete) {
-          setProfile(userProfile);
+        if (userProfile) {
+            if (userProfile.profileComplete) {
+              setProfile(userProfile);
+            } else {
+              router.push("/complete-profile");
+            }
         } else {
-          router.push("/complete-profile");
+            // If profile doesn't exist for some reason, push to creation
+            router.push("/complete-profile");
         }
       } catch (error) {
         console.error("Error fetching user profile:", error);
@@ -101,6 +107,8 @@ export default function DashboardPage() {
      return <LoadingSpinner text="Loading Dashboard..." />;
   }
 
+  const visibleCards = featureCards.filter(card => !card.adminOnly || (card.adminOnly && profile.admin));
+
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
       <header className="text-center mb-12">
@@ -108,12 +116,12 @@ export default function DashboardPage() {
           Welcome to Your Dashboard, {profile.displayName}!
         </h1>
         <p className="text-lg text-muted-foreground">
-          Here's your command center for swapping skills and tracking progress.
+          You have <span className="font-bold text-primary">{profile.coins || 0}</span> SkillCoins in your wallet.
         </p>
       </header>
 
       <main className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {featureCards.map((card) => (
+        {visibleCards.map((card) => (
           <Link href={card.href} key={card.title} className="group">
             <Card className="h-full hover:border-primary transition-colors duration-300 hover:shadow-lg">
               <CardHeader className="flex flex-row items-center gap-4">

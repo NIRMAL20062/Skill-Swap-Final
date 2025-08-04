@@ -8,7 +8,7 @@ import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, MessageCircle } from "lucide-react";
+import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, MessageCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
@@ -56,7 +56,9 @@ export default function UserProfilePage() {
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
   const { userId } = params;
+  
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -65,6 +67,7 @@ export default function UserProfilePage() {
   const [selectedSkill, setSelectedSkill] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState("10:00");
+  const [selectedDuration, setSelectedDuration] = useState("1"); // Default 1 hour
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
@@ -84,6 +87,12 @@ export default function UserProfilePage() {
         } else {
           router.push('/discover');
         }
+
+        if (currentUser) {
+            const currentProfile = await getUserProfile(currentUser.uid);
+            setCurrentUserProfile(currentProfile);
+        }
+
       } catch (error) {
         console.error("Failed to fetch user data:", error);
         router.push('/discover');
@@ -92,16 +101,28 @@ export default function UserProfilePage() {
       }
     }
     fetchData();
-  }, [userId, router]);
+  }, [userId, router, currentUser]);
 
   const handleBookingRequest = async () => {
-    if (!currentUser || !profile || !selectedSkill || !selectedDate || !selectedTime) {
+    const duration = parseFloat(selectedDuration);
+    const requiredCoins = duration * 10;
+    
+    if (!currentUser || !currentUserProfile || !profile || !selectedSkill || !selectedDate || !selectedTime) {
       toast({
         title: "Incomplete Information",
-        description: "Please select a skill, date, and time to book a session.",
+        description: "Please select a skill, duration, date, and time.",
         variant: "destructive",
       });
       return;
+    }
+
+    if ((currentUserProfile.coins || 0) < requiredCoins) {
+        toast({
+            title: "Insufficient Coins",
+            description: `You need ${requiredCoins} coins for a ${duration}-hour session, but you only have ${currentUserProfile.coins || 0}.`,
+            variant: "destructive",
+        });
+        return;
     }
 
     setIsBooking(true);
@@ -123,6 +144,8 @@ export default function UserProfilePage() {
         mentorName: profile.displayName || "A Mentor",
         skill: selectedSkill,
         dateTime: combinedDateTime.toISOString(),
+        duration: duration,
+        cost: requiredCoins,
         status: 'pending'
       });
 
@@ -162,6 +185,7 @@ export default function UserProfilePage() {
   const isOwnProfile = currentUser?.uid === profile.uid;
   const rating = profile.rating ?? 0;
   const reviewCount = profile.reviewCount ?? 0;
+  const bookingCost = parseFloat(selectedDuration) * 10;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -215,7 +239,7 @@ export default function UserProfilePage() {
                 <DialogHeader>
                   <DialogTitle>Book a Session with {profile.displayName}</DialogTitle>
                   <DialogDescription>
-                    Select a skill you want to learn and propose a time for your session.
+                    Select a skill, duration, and propose a time for your session.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -231,6 +255,21 @@ export default function UserProfilePage() {
                         {profile.skillsToTeach?.map(skill => (
                           <SelectItem key={skill} value={skill}>{skill}</SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="duration" className="text-right">
+                      Duration
+                    </Label>
+                    <Select onValueChange={setSelectedDuration} defaultValue="1">
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 Hour</SelectItem>
+                        <SelectItem value="1.5">1.5 Hours</SelectItem>
+                        <SelectItem value="2">2 Hours</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -274,9 +313,19 @@ export default function UserProfilePage() {
                         className="col-span-3"
                       />
                   </div>
+                   <div className="col-span-4 mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
+                        <p>Total Cost: <span className="font-bold">{bookingCost} SkillCoins</span></p>
+                        <p className="text-muted-foreground">Your Balance: {currentUserProfile?.coins || 0} SkillCoins</p>
+                    </div>
+                     {((currentUserProfile?.coins || 0) < bookingCost) && (
+                        <div className="col-span-4 flex items-center gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-md">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>You have insufficient coins for this session.</span>
+                        </div>
+                    )}
                 </div>
                 <DialogFooter>
-                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking}>
+                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking || ((currentUserProfile?.coins || 0) < bookingCost)}>
                     {isBooking ? "Sending Request..." : "Send Request"}
                   </Button>
                 </DialogFooter>

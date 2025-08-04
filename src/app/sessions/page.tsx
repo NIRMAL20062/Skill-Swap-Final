@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { getUserSessions, Session, updateSessionStatus, markSessionAsComplete, submitReview } from "@/lib/firestore";
+import { getUserProfile, getUserSessions, Session, updateSessionStatus, markSessionAsComplete, submitReview, UserProfile } from "@/lib/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,19 +30,18 @@ export default function SessionsPage() {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    async function fetchSessions() {
+  const fetchSessions = async () => {
+      if (!user) return;
       setLoading(true);
       try {
-        const userSessions = await getUserSessions(user!.uid);
+        const [userSessions, profile] = await Promise.all([
+            getUserSessions(user!.uid),
+            getUserProfile(user!.uid)
+        ]);
         setSessions(userSessions);
+        setCurrentUserProfile(profile);
       } catch (error) {
         console.error("Failed to fetch sessions:", error);
         toast({
@@ -53,6 +52,13 @@ export default function SessionsPage() {
       } finally {
         setLoading(false);
       }
+  }
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.push("/login");
+      return;
     }
     fetchSessions();
   }, [user, authLoading, router, toast]);
@@ -96,9 +102,10 @@ export default function SessionsPage() {
   const handleMarkComplete = async (session: Session) => {
       if (!user) return;
       try {
-        const updatedSession = await markSessionAsComplete(session.id, user.uid);
-        setSessions(prev => prev.map(s => s.id === session.id ? {...s, ...updatedSession} : s));
-        toast({ title: "Session Updated", description: "Your action has been recorded."});
+        await markSessionAsComplete(session.id, user.uid);
+        toast({ title: "Session Updated", description: "Your action has been recorded. The session will be marked 'completed' once both parties have confirmed."});
+        // Refetch sessions to get the latest status
+        await fetchSessions();
       } catch (error: any) {
         toast({ title: "Error", description: error.message || "Failed to mark complete.", variant: "destructive"});
       }
@@ -122,14 +129,15 @@ export default function SessionsPage() {
         sessionId: currentSessionForFeedback.id,
         mentorId: currentSessionForFeedback.mentorId,
         menteeId: currentSessionForFeedback.menteeId,
-        menteeName: user.displayName || "Anonymous User",
+        menteeName: currentUserProfile?.displayName || "Anonymous User",
         rating: rating,
         reviewText: reviewText,
       });
 
       setSessions(prev => prev.map(s => s.id === currentSessionForFeedback.id ? {...s, feedbackSubmitted: true} : s));
-      toast({ title: "Success", description: "Your feedback has been submitted!" });
+      toast({ title: "Success", description: "Your feedback has been submitted! If both parties have marked complete, the transaction is now processed." });
       setFeedbackModalOpen(false);
+      await fetchSessions(); // Refresh data
     } catch (error: any) {
       console.error("Feedback submission failed:", error);
       toast({ title: "Error", description: error.message || "An unexpected error occurred. Please try again.", variant: "destructive" });
@@ -142,12 +150,13 @@ export default function SessionsPage() {
       const isMentor = session.mentorId === user?.uid;
       const otherPartyName = isMentor ? session.menteeName : session.mentorName;
       const userHasCompleted = isMentor ? session.mentorCompleted : session.menteeCompleted;
+      const bothCompleted = session.mentorCompleted && session.menteeCompleted;
 
       return (
         <Card key={session.id} className="mb-4">
           <CardHeader>
             <CardTitle>Session with {otherPartyName}</CardTitle>
-            <CardDescription>Skill: {session.skill}</CardDescription>
+            <CardDescription>Skill: {session.skill} ({session.duration} hr) - Cost: {session.cost} coins</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center text-sm text-muted-foreground">
@@ -183,7 +192,6 @@ export default function SessionsPage() {
 
             {session.status === 'accepted' && session.meetingLink && (
                <div className="flex gap-2 items-center flex-wrap">
-                 <Button variant="outline" disabled><MessageSquare className="mr-2 h-4 w-4" /> Message</Button>
                  <Button asChild>
                     <Link href={session.meetingLink} target="_blank"><Video className="mr-2 h-4 w-4" /> Join Meet</Link>
                  </Button>
@@ -192,9 +200,16 @@ export default function SessionsPage() {
                  </Button>
                </div>
             )}
+             {session.status === 'accepted' && !isMentor && (
+                <p className="text-muted-foreground">{session.meetingLink ? "A meeting link has been provided." : "Waiting for the mentor to provide a meeting link."}</p>
+             )}
 
-            {session.status === 'accepted' && !session.meetingLink && !isMentor && (
-                <p className="text-muted-foreground">Waiting for the mentor to provide a meeting link.</p>
+            {session.status === 'accepted' && bothCompleted && !session.feedbackSubmitted && !isMentor && (
+                 <div className="p-4 border rounded-lg bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 space-y-2">
+                    <h4 className="font-semibold">Action Required</h4>
+                    <p className="text-sm">Both you and the mentor have marked this session as complete. Please leave feedback to finalize the session and process the coin transaction.</p>
+                    <Button onClick={() => openFeedbackModal(session)} variant="secondary"><Star className="mr-2 h-4 w-4" /> Leave Feedback</Button>
+                </div>
             )}
 
           </CardContent>
@@ -254,7 +269,7 @@ export default function SessionsPage() {
         <DialogContent>
             <DialogHeader>
                 <DialogTitle>Leave Feedback for {currentSessionForFeedback?.mentorName}</DialogTitle>
-                <DialogDescription>Your feedback helps other users find great mentors.</DialogDescription>
+                <DialogDescription>Your feedback helps other users find great mentors. Submitting this will complete the session.</DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-4">
                 <div>

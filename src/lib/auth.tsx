@@ -29,6 +29,7 @@ export const signUpWithEmail = async (email: string, password: string, fullName:
   
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   await sendEmailVerification(userCredential.user);
+  
   await createUserProfile(userCredential.user.uid, {
     email: userCredential.user.email!,
     displayName: fullName,
@@ -50,6 +51,7 @@ export const signInWithGoogle = async () => {
     await createUserProfile(user.uid, {
       email: user.email!,
       displayName: user.displayName || 'New User',
+      photoURL: user.photoURL || undefined,
     });
   }
   return result;
