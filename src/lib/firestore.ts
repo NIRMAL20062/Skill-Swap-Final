@@ -198,11 +198,10 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
 
         const bothPartiesCompleted = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
         
-        // This is the key change: only proceed with coin distribution if the *other* party has already marked complete.
         if (bothPartiesCompleted) {
             updateData.status = 'completed';
             
-            const { menteeId, mentorId, cost, duration } = sessionData;
+            const { menteeId, mentorId, cost, duration, skill } = sessionData;
             const mentorShare = duration * 8;
             const adminShare = cost - mentorShare;
 
@@ -231,28 +230,30 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
-            const description = `Session for ${sessionData.skill} with ${sessionData.mentorName}`;
+            const description = `Session for ${skill} with ${sessionData.mentorName}`;
             
+            const batch = writeBatch(db);
+
             const menteeTxRef = doc(collection(db, "transactions"));
-            transaction.set(menteeTxRef, {
+            batch.set(menteeTxRef, {
                 userId: menteeId, type: 'debit', amount: cost, description,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const mentorTxRef = doc(collection(db, "transactions"));
-            transaction.set(mentorTxRef, {
+            batch.set(mentorTxRef, {
                 userId: mentorId, type: 'credit', amount: mentorShare, description,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const adminTxRef = doc(collection(db, "transactions"));
-            transaction.set(adminTxRef, {
+            batch.set(adminTxRef, {
                 userId: adminDoc.id, type: 'credit', amount: adminShare, description: `Admin fee for session: ${sessionId}`,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
+            await batch.commit();
         }
         
-        // Always update the session document with the new completion status.
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
         return { ...sessionData, ...updateData };
     });

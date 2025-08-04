@@ -3,36 +3,48 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check if a user is an admin
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.admin == true;
     }
+    
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
 
+    // Users can only read/write their own profile, but any authenticated user can read any profile.
+    // Admins can read/write any user profile.
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth.uid == userId;
-      
-      // Allow user to update their own profile.
-      // Allow anyone to update coin balance IF it's part of a valid session transaction.
-      // This is less secure than a cloud function but necessary for client-only logic.
-      allow update: if request.auth.uid == userId || isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if request.auth.uid == userId || isAdmin();
     }
 
+    // Sessions can be created by any authenticated user.
+    // Users can only read sessions they are a part of.
+    // Users can only update a session they are a part of.
+    // Admins can read/write any session.
     match /sessions/{sessionId} {
-      allow read, create: if request.auth != null;
-      // Allow update if user is the mentee or mentor of the session.
-      allow update: if request.auth != null && (request.auth.uid == resource.data.menteeId || request.auth.uid == resource.data.mentorId);
+      allow create: if isAuthenticated();
+      allow read, update: if isAuthenticated() && (resource.data.menteeId == request.auth.uid || resource.data.mentorId == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
     }
-
+    
+    // Reviews can be created by the mentee of the session.
+    // Any authenticated user can read reviews.
+    // Admins can delete reviews.
     match /reviews/{reviewId} {
-      allow read: if request.auth != null;
-      // Allow create if user is the mentee of the session being reviewed.
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.menteeId;
+      allow create: if isAuthenticated() && request.resource.data.menteeId == request.auth.uid;
+      allow read: if isAuthenticated();
+      allow delete: if isAdmin();
     }
-
+    
+    // Transactions can only be read by the user they belong to or an admin.
+    // No one can create, update, or delete transactions directly from the client.
+    // This must be handled by secure backend logic (e.g., Cloud Functions).
     match /transactions/{transactionId} {
-      allow read: if request.auth.uid == resource.data.userId || isAdmin();
-      // Transactions can only be created as part of the session completion transaction.
-      allow create: if request.auth != null; 
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
     }
   }
 }

@@ -83,7 +83,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+            if (user && !user.emailVerified && user.providerData.some(p => p.providerId === 'password')) {
+                setUser(null);
+            } else {
+                setUser(user);
+            }
             setLoading(false);
         });
 
