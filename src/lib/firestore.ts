@@ -1,4 +1,3 @@
-
 // src/lib/firestore.ts
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy } from "firebase/firestore"; 
 import { db } from "./firebase";
@@ -230,6 +229,8 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             const menteeData = menteeDoc.data() as UserProfile;
             const mentorData = mentorDoc.data() as UserProfile;
             const adminData = adminDoc.data() as UserProfile;
+            
+            const batch = writeBatch(db);
 
             // 1. Deduct from mentee
             transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
@@ -242,7 +243,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             const description = `Session for ${sessionData.skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
             
             const menteeTxRef = doc(collection(db, "transactions"));
-            transaction.set(menteeTxRef, {
+            batch.set(menteeTxRef, {
                 userId: menteeId,
                 type: 'debit',
                 amount: cost,
@@ -252,7 +253,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             });
 
             const mentorTxRef = doc(collection(db, "transactions"));
-            transaction.set(mentorTxRef, {
+            batch.set(mentorTxRef, {
                 userId: mentorId,
                 type: 'credit',
                 amount: mentorShare,
@@ -262,7 +263,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             });
 
             const adminTxRef = doc(collection(db, "transactions"));
-            transaction.set(adminTxRef, {
+            batch.set(adminTxRef, {
                 userId: adminDoc.id,
                 type: 'credit',
                 amount: adminShare,
@@ -270,6 +271,7 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
                 relatedSessionId: sessionId,
                 timestamp: serverTimestamp(),
             });
+            await batch.commit();
         }
         
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
