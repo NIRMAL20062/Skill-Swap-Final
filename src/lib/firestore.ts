@@ -1,5 +1,5 @@
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy } from "firebase/firestore"; 
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy, getDocsFromCache } from "firebase/firestore"; 
 import { db } from "./firebase";
 
 // The email for the admin user
@@ -70,6 +70,7 @@ export interface Transaction {
 export const createUserProfile = async (uid: string, data: Partial<UserProfile>) => {
   const userRef = doc(db, "users", uid);
   const isAdmin = data.email === ADMIN_EMAIL;
+  
   return setDoc(userRef, {
     uid,
     ...data,
@@ -83,6 +84,7 @@ export const createUserProfile = async (uid: string, data: Partial<UserProfile>)
     admin: isAdmin,
   }, { merge: true });
 };
+
 
 // Function to get a user profile
 export const getUserProfile = async (uid:string): Promise<UserProfile | null> => {
@@ -187,6 +189,11 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
         }
 
         const sessionData = sessionDoc.data() as Session;
+        if (sessionData.status === 'completed') {
+            // Already completed, do nothing.
+            return sessionData;
+        }
+
         const isMentor = sessionData.mentorId === userId;
         
         let updateData: Partial<Session> = {};
@@ -230,28 +237,26 @@ export const markSessionAsComplete = async (sessionId: string, userId: string) =
             transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
             transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
 
+            // Also create the transaction logs within the same transaction
             const description = `Session for ${skill} with ${sessionData.mentorName}`;
             
-            const batch = writeBatch(db);
-
             const menteeTxRef = doc(collection(db, "transactions"));
-            batch.set(menteeTxRef, {
+            transaction.set(menteeTxRef, {
                 userId: menteeId, type: 'debit', amount: cost, description,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const mentorTxRef = doc(collection(db, "transactions"));
-            batch.set(mentorTxRef, {
+            transaction.set(mentorTxRef, {
                 userId: mentorId, type: 'credit', amount: mentorShare, description,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
 
             const adminTxRef = doc(collection(db, "transactions"));
-            batch.set(adminTxRef, {
+            transaction.set(adminTxRef, {
                 userId: adminDoc.id, type: 'credit', amount: adminShare, description: `Admin fee for session: ${sessionId}`,
                 relatedSessionId: sessionId, timestamp: serverTimestamp(),
             });
-            await batch.commit();
         }
         
         transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
