@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -28,7 +29,7 @@ export async function chat(input: ChatInput) {
         - **Discover Peers:** Find other users to trade skills with.
         - **Manage Sessions:** Schedule, track, and manage your learning/teaching sessions.
         - **User Profiles:** View detailed profiles with skills, ratings, and reviews.
-        - **Reviews and Ratings:** After a session is completed, mentees can leave a rating and review for their mentor.
+        - **Reviews and Ratings:** After a session is completed, a mentee can leave a rating and review for their mentor.
         - **AI Skill Suggestions:** The app uses AI to suggest new skills a user might be interested in learning based on their profile.
     - **Is it free?** Yes, the platform is free to use. The core concept is exchanging time and knowledge, not money.
     - **How do I start?** Sign up, complete your profile by adding your skills, and then head to the "Discover" page to find someone to learn from!
