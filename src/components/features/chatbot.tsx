@@ -10,14 +10,11 @@ import { MessageSquare, Send, Bot, User, Loader2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAuth } from '@/lib/auth';
 import { chat } from '@/ai/flows/chatbot';
-import type { z } from 'genkit';
 
-type Message = z.infer<typeof ChatMessageSchema>;
-
-// Re-define schema from chatbot.ts to use in the component
-const ChatMessageSchema = {
-  role: 'user' as const | 'model' as const,
-  content: [{ text: '' }],
+// Define the Message type directly for the component's state
+type Message = {
+  role: 'user' | 'model';
+  content: { text: string }[];
 };
 
 
@@ -72,6 +69,10 @@ export default function Chatbot() {
       setIsLoading(false);
     }
   };
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <>
