@@ -50,6 +50,15 @@ function ReviewStars({ rating, className }: { rating: number, className?: string
   );
 }
 
+// Generate time slots for the dropdown
+const timeSlots = Array.from({ length: 24 * 2 }, (_, i) => {
+    const hours = Math.floor(i / 2);
+    const minutes = (i % 2) * 30;
+    const date = new Date();
+    date.setHours(hours, minutes);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+});
+
 
 export default function UserProfilePage() {
   const params = useParams();
@@ -66,7 +75,7 @@ export default function UserProfilePage() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [selectedTime, setSelectedTime] = useState("10:00");
+  const [selectedTime, setSelectedTime] = useState("10:00 AM");
   const [selectedDuration, setSelectedDuration] = useState("1"); // Default 1 hour
   const [isBooking, setIsBooking] = useState(false);
 
@@ -127,15 +136,20 @@ export default function UserProfilePage() {
 
     setIsBooking(true);
     try {
-      const [hours, minutes] = selectedTime.split(':').map(Number);
-      if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-          toast({ title: "Invalid Time", description: "Please enter a valid time in HH:MM format.", variant: "destructive" });
-          setIsBooking(false);
-          return;
+      // Parse time like "5:30 PM"
+      const timeParts = selectedTime.match(/(\d+):(\d+)\s(AM|PM)/);
+      if (!timeParts) {
+        toast({ title: "Invalid Time", description: "Please select a valid time.", variant: "destructive" });
+        setIsBooking(false);
+        return;
       }
-        
+      let [_, hours, minutes, ampm] = timeParts;
+      let hours24 = parseInt(hours, 10);
+      if (ampm === 'PM' && hours24 < 12) hours24 += 12;
+      if (ampm === 'AM' && hours24 === 12) hours24 = 0; // Midnight case
+
       const combinedDateTime = new Date(selectedDate);
-      combinedDateTime.setHours(hours, minutes);
+      combinedDateTime.setHours(hours24, parseInt(minutes, 10), 0, 0);
 
       await requestSession({
         menteeId: currentUser.uid,
@@ -235,14 +249,14 @@ export default function UserProfilePage() {
               <DialogTrigger asChild>
                 <Button size="lg">Book a Session</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
+              <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Book a Session with {profile.displayName}</DialogTitle>
                   <DialogDescription>
                     Select a skill, duration, and propose a time for your session.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-6 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="skill" className="text-right">
                       Skill
@@ -305,27 +319,30 @@ export default function UserProfilePage() {
                     <Label htmlFor="time" className="text-right">
                       Time
                     </Label>
-                     <Input
-                        id="time"
-                        type="time"
-                        value={selectedTime}
-                        onChange={(e) => setSelectedTime(e.target.value)}
-                        className="col-span-3 text-foreground"
-                      />
+                     <Select onValueChange={setSelectedTime} defaultValue={selectedTime}>
+                        <SelectTrigger className="col-span-3 text-foreground">
+                            <SelectValue placeholder="Select a time"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {timeSlots.map(time => (
+                                <SelectItem key={time} value={time}>{time}</SelectItem>
+                            ))}
+                        </SelectContent>
+                     </Select>
                   </div>
-                   <div className="col-span-4 mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
+                   <div className="mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
                         <p>Total Cost: <span className="font-bold">{bookingCost} SkillCoins</span></p>
                         <p className="text-muted-foreground">Your Balance: {currentUserProfile?.coins || 0} SkillCoins</p>
                     </div>
                      {((currentUserProfile?.coins || 0) < bookingCost) && (
-                        <div className="col-span-4 flex items-center gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-md">
+                        <div className="flex items-center gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-md">
                             <AlertCircle className="h-4 w-4" />
                             <span>You have insufficient coins for this session.</span>
                         </div>
                     )}
                 </div>
                 <DialogFooter>
-                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking || ((currentUserProfile?.coins || 0) < bookingCost)}>
+                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking || ((currentUserProfile?.coins || 0) < bookingCost)} className="w-full">
                     {isBooking ? "Sending Request..." : "Send Request"}
                   </Button>
                 </DialogFooter>
@@ -374,7 +391,8 @@ export default function UserProfilePage() {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <CardTitle className="text-lg">{review.menteeName}</CardTitle>
-                                        <CardDescription>{new Date(review.createdAt.toDate()).toLocaleDateString()}</CardDescription>
+
+                                        <CardDescription>{review.createdAt instanceof Timestamp ? new Date(review.createdAt.toDate()).toLocaleDateString() : 'Date not available'}</CardDescription>
                                     </div>
                                     <ReviewStars rating={review.rating} />
                                 </div>
@@ -399,3 +417,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+    

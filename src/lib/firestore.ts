@@ -164,7 +164,13 @@ export const getUserSessions = async (userId: string): Promise<Session[]> => {
         }
     });
 
-    return sessions.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime());
+    return sessions.sort((a, b) => {
+      const dateA = a.createdAt?.toDate() ?? 0;
+      const dateB = b.createdAt?.toDate() ?? 0;
+      if (dateA > dateB) return -1;
+      if (dateA < dateB) return 1;
+      return 0;
+    });
 };
 
 // Function to update a session's status
@@ -331,3 +337,5 @@ export const getLeaderboard = async (count: number): Promise<UserProfile[]> => {
     const usersList = querySnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
     return usersList;
 }
+
+    
