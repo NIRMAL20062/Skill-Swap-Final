@@ -292,18 +292,43 @@ export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
 export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
     return runTransaction(db, async (transaction) => {
         const sessionRef = doc(db, 'sessions', reviewData.sessionId);
-        
+        const mentorRef = doc(db, 'users', reviewData.mentorId);
+
+        // 1. Validate session and check for existing review
         const sessionDoc = await transaction.get(sessionRef);
-        if (sessionDoc.exists() && sessionDoc.data().feedbackSubmitted) {
-            throw new Error("Feedback has already been submitted for this session.");
+        if (!sessionDoc.exists() || sessionDoc.data().feedbackSubmitted) {
+            throw new Error("Feedback has already been submitted for this session or the session does not exist.");
         }
-        
+
+        // 2. Get mentor's current rating data
+        const mentorDoc = await transaction.get(mentorRef);
+        if (!mentorDoc.exists()) {
+            throw new Error("Mentor profile not found.");
+        }
+        const mentorData = mentorDoc.data() as UserProfile;
+
+        // 3. Create the new review
         const newReviewRef = doc(collection(db, 'reviews')); 
         transaction.set(newReviewRef, {
             ...reviewData,
             createdAt: serverTimestamp(),
         });
+
+        // 4. Calculate new rating values
+        const currentReviewCount = mentorData.reviewCount || 0;
+        const currentTotalRating = mentorData.totalRating || 0;
+        const newReviewCount = currentReviewCount + 1;
+        const newTotalRating = currentTotalRating + reviewData.rating;
+        const newAverageRating = newTotalRating / newReviewCount;
+
+        // 5. Update the mentor's profile with new rating
+        transaction.update(mentorRef, {
+            reviewCount: newReviewCount,
+            totalRating: newTotalRating,
+            rating: newAverageRating,
+        });
         
+        // 6. Mark the session as having feedback submitted
         transaction.update(sessionRef, { feedbackSubmitted: true, updatedAt: serverTimestamp() });
     });
 };
@@ -337,5 +362,3 @@ export const getLeaderboard = async (count: number): Promise<UserProfile[]> => {
     const usersList = querySnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
     return usersList;
 }
-
-    
