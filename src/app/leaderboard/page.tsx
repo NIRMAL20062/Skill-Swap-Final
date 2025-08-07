@@ -75,7 +75,7 @@ export default function LeaderboardPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[100px] text-center">Rank</TableHead>
+                <TableHead className="w-[80px] text-center">Rank</TableHead>
                 <TableHead>User</TableHead>
                 <TableHead className="text-center">Rating</TableHead>
                 <TableHead className="text-center">Reviews</TableHead>

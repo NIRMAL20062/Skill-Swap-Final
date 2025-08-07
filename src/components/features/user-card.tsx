@@ -23,18 +23,18 @@ function ReviewStars({ rating, className }: { rating: number, className?: string
   return (
     <div className={cn("flex items-center", className)}>
       {[...Array(fullStars)].map((_, i) => (
-        <Star key={`full-${i}`} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+        <Star key={`full-${i}`} className="h-4 w-4 text-yellow-400 fill-yellow-400" />
       ))}
       {partialStar > 0 && (
          <div className="relative">
-            <Star key="partial" className="h-5 w-5 text-yellow-400" />
+            <Star key="partial" className="h-4 w-4 text-yellow-400" />
             <div className="absolute top-0 left-0 overflow-hidden" style={{ width: `${partialStar * 100}%` }}>
-                <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+                <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
             </div>
         </div>
       )}
       {[...Array(emptyStars)].map((_, i) => (
-        <Star key={`empty-${i}`} className="h-5 w-5 text-gray-300" />
+        <Star key={`empty-${i}`} className="h-4 w-4 text-gray-300" />
       ))}
     </div>
   );
@@ -48,7 +48,7 @@ export function UserCard({ user }: UserCardProps) {
 
   return (
     <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-      <CardHeader className="flex-row items-center gap-4 pb-2">
+      <CardHeader className="flex-row items-center gap-4 pb-4">
         <Avatar className="h-16 w-16 border-2 border-primary">
           <AvatarImage src={user.photoURL} alt={user.displayName} />
           <AvatarFallback className="text-2xl">{initial}</AvatarFallback>
@@ -68,7 +68,7 @@ export function UserCard({ user }: UserCardProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow">
+      <CardContent className="flex-grow pt-0">
         <div className="space-y-3">
             <div>
                  <h4 className="text-sm font-semibold text-muted-foreground mb-2">Teaches:</h4>
