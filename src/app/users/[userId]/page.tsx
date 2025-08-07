@@ -248,7 +248,7 @@ export default function UserProfilePage() {
                       Skill
                     </Label>
                     <Select onValueChange={setSelectedSkill}>
-                      <SelectTrigger className="col-span-3">
+                      <SelectTrigger className="col-span-3 text-foreground">
                         <SelectValue placeholder="Select a skill" />
                       </SelectTrigger>
                       <SelectContent>
@@ -263,7 +263,7 @@ export default function UserProfilePage() {
                       Duration
                     </Label>
                     <Select onValueChange={setSelectedDuration} defaultValue="1">
-                      <SelectTrigger className="col-span-3">
+                      <SelectTrigger className="col-span-3 text-foreground">
                         <SelectValue placeholder="Select duration" />
                       </SelectTrigger>
                       <SelectContent>
@@ -282,7 +282,7 @@ export default function UserProfilePage() {
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "col-span-3 justify-start text-left font-normal",
+                            "col-span-3 justify-start text-left font-normal text-foreground",
                             !selectedDate && "text-muted-foreground"
                           )}
                         >
@@ -310,7 +310,7 @@ export default function UserProfilePage() {
                         type="time"
                         value={selectedTime}
                         onChange={(e) => setSelectedTime(e.target.value)}
-                        className="col-span-3"
+                        className="col-span-3 text-foreground"
                       />
                   </div>
                    <div className="col-span-4 mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
