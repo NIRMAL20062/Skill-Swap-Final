@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getUserProfile, UserProfile, requestSession, getReviewsForUser, Review as ReviewType } from "@/lib/firestore";
+import { Timestamp } from "firebase/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -417,5 +418,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-    
