@@ -73,8 +73,13 @@ export default function Home() {
           </div>
         </section>
       </main>
-      <footer className="flex items-center justify-center h-16 border-t">
+      <footer className="flex flex-col items-center justify-center h-24 border-t gap-2">
           <p className="text-sm text-muted-foreground">&copy; 2024 SkillSwap. All rights reserved.</p>
+          <div className="flex gap-4 text-sm">
+            <Link href="/terms" className="text-muted-foreground hover:text-primary">Terms & Conditions</Link>
+            <Link href="/privacy" className="text-muted-foreground hover:text-primary">Privacy Policy</Link>
+            <Link href="/contact" className="text-muted-foreground hover:text-primary">Contact</Link>
+          </div>
       </footer>
     </div>
   );
