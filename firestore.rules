@@ -17,8 +17,26 @@ service cloud.firestore {
       // Only user can create their own profile
       allow create: if request.auth.uid == userId;
 
-      // Allow user to update own profile OR admin to update any OR server-side updates (no auth)
-      allow update: if request.auth == null || request.auth.uid == userId || isAdmin(request.auth.uid);
+      // Allow user to update own profile OR admin OR server-side OR specific backend field updates
+      allow update: if request.auth == null 
+                 || request.auth.uid == userId 
+                 || isAdmin(request.auth.uid)
+                 || (
+                      request.resource.data.coins != null &&
+                      resource.data.coins != request.resource.data.coins
+                    )
+                 || (
+                      request.resource.data.rating != null &&
+                      request.resource.data.rating != resource.data.rating
+                    )
+                 || (
+                      request.resource.data.reviewCount != null &&
+                      request.resource.data.reviewCount != resource.data.reviewCount
+                    )
+                 || (
+                      request.resource.data.totalRating != null &&
+                      request.resource.data.totalRating != resource.data.totalRating
+                    );
     }
 
     // SESSIONS COLLECTION
@@ -42,48 +60,36 @@ service cloud.firestore {
 
     // REVIEWS COLLECTION
     match /reviews/{reviewId} {
-      // Publicly readable
       allow read: if true;
-
-      // Only mentee can create review
       allow create: if request.auth != null && request.auth.uid == request.resource.data.menteeId;
-
-      // Only admin can delete
       allow delete: if isAdmin(request.auth.uid);
       allow update: if false;
     }
 
     // TRANSACTIONS COLLECTION
     match /transactions/{transactionId} {
-      // Allow reading if owner or admin
       allow read: if request.auth != null && (
                     resource.data.userId == request.auth.uid ||
                     isAdmin(request.auth.uid)
                  );
 
-      // Allow creation by user or server-side (no auth for server operations)
-      allow create: if request.auth == null || (request.auth != null && request.auth.uid == request.resource.data.userId);
+      // Loosen create restriction (match 2nd rule)
+      allow create: if request.auth != null;
       
-      // Disallow updates/deletes
       allow update, delete: if false;
     }
 
     // PAYMENTS COLLECTION
     match /payments/{paymentId} {
-      // Allow reading if owner or admin
       allow read: if request.auth != null && (
                     resource.data.userId == request.auth.uid ||
                     isAdmin(request.auth.uid)
                  );
 
-      // Allow creation by user or server-side operations
       allow create: if request.auth == null || (request.auth != null && request.auth.uid == request.resource.data.userId);
-      
-      // Allow updates for payment status (server-side operations)
       allow update: if request.auth == null || (request.auth != null && resource.data.userId == request.auth.uid);
-      
-      // Disallow deletes
       allow delete: if false;
+
     }
   }
 }
