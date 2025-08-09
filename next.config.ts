@@ -19,7 +19,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  output: "standalone",
+  // Remove standalone output for compatibility with npm start
+  // output: "standalone",
 
   // Production optimizations
   compress: true,
