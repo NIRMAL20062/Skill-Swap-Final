@@ -17,7 +17,7 @@ service cloud.firestore {
       // Only user can create their own profile
       allow create: if request.auth.uid == userId;
 
-      // Allow user to update own profile OR admin OR server-side OR specific backend field updates
+      // Allow user to update own profile OR admin OR server-side operations (no auth) OR specific backend field updates
       allow update: if request.auth == null 
                  || request.auth.uid == userId 
                  || isAdmin(request.auth.uid)
