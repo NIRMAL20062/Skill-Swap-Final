@@ -9,7 +9,7 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data.admin == true;
     }
 
-    // USERS
+    // USERS COLLECTION
     match /users/{userId} {
       // Any signed-in user can read user profiles
       allow read: if request.auth != null;
@@ -17,11 +17,11 @@ service cloud.firestore {
       // Only user can create their own profile
       allow create: if request.auth.uid == userId;
 
-      // Allow user to update own profile OR allow admin to update any
-      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
+      // Allow user to update own profile OR admin to update any OR server-side updates (no auth)
+      allow update: if request.auth == null || request.auth.uid == userId || isAdmin(request.auth.uid);
     }
 
-    // SESSIONS
+    // SESSIONS COLLECTION
     match /sessions/{sessionId} {
       allow read: if request.auth != null && (
                     resource.data.menteeId == request.auth.uid ||
@@ -40,7 +40,7 @@ service cloud.firestore {
                    );
     }
 
-    // REVIEWS
+    // REVIEWS COLLECTION
     match /reviews/{reviewId} {
       // Publicly readable
       allow read: if true;
@@ -48,12 +48,12 @@ service cloud.firestore {
       // Only mentee can create review
       allow create: if request.auth != null && request.auth.uid == request.resource.data.menteeId;
 
-      // Only admin can delete (optional)
+      // Only admin can delete
       allow delete: if isAdmin(request.auth.uid);
       allow update: if false;
     }
 
-    // TRANSACTIONS
+    // TRANSACTIONS COLLECTION
     match /transactions/{transactionId} {
       // Allow reading if owner or admin
       allow read: if request.auth != null && (
@@ -61,11 +61,29 @@ service cloud.firestore {
                     isAdmin(request.auth.uid)
                  );
 
-      // Disallow client creation
-      allow create: if false;
+      // Allow creation by user or server-side (no auth for server operations)
+      allow create: if request.auth == null || (request.auth != null && request.auth.uid == request.resource.data.userId);
       
       // Disallow updates/deletes
       allow update, delete: if false;
+    }
+
+    // PAYMENTS COLLECTION
+    match /payments/{paymentId} {
+      // Allow reading if owner or admin
+      allow read: if request.auth != null && (
+                    resource.data.userId == request.auth.uid ||
+                    isAdmin(request.auth.uid)
+                 );
+
+      // Allow creation by user or server-side operations
+      allow create: if request.auth == null || (request.auth != null && request.auth.uid == request.resource.data.userId);
+      
+      // Allow updates for payment status (server-side operations)
+      allow update: if request.auth == null || (request.auth != null && resource.data.userId == request.auth.uid);
+      
+      // Disallow deletes
+      allow delete: if false;
     }
   }
 }

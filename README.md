@@ -346,7 +346,49 @@ We welcome contributions! Here's how to get started:
 
 ---
 
-## 📄 License
+## � Deployment
+
+### 🌐 Deploy to Render
+
+SkillSwap is configured for easy deployment to Render:
+
+1. **📁 Push to GitHub**:
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
+
+2. **🔗 Connect to Render**:
+   - Go to [render.com](https://render.com)
+   - Create new Web Service
+   - Connect your GitHub repository
+
+3. **⚙️ Configuration**:
+   - Build Command: `npm install && npm run build`
+   - Start Command: `npm start`
+   - Environment: Node.js
+   - Plan: Free (upgrade as needed)
+
+4. **🔐 Environment Variables**:
+   - Create environment group `skillswap-env`
+   - Add all variables from `.env.local`
+   - See `DEPLOYMENT.md` for complete list
+
+### 🌟 Live Demo
+**🔗 [View Live Application](https://skillswap.onrender.com)**
+
+### 📖 Complete Deployment Guide
+For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+### ☁️ Alternative Platforms
+- **Vercel**: `vercel --prod`
+- **Netlify**: `netlify deploy --prod`
+- **Firebase Hosting**: `firebase deploy`
+
+---
+
+## �📄 License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 

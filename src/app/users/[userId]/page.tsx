@@ -1,111 +1,129 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getUserProfile, UserProfile, requestSession, getReviewsForUser, Review as ReviewType } from "@/lib/firestore";
+import {
+  getUserProfile,
+  UserProfile,
+  requestSession,
+  getReviewsForUser,
+  Review as ReviewType,
+} from "@/lib/firestore";
 import { Timestamp } from "firebase/firestore";
 import LoadingSpinner from "@/components/layout/loading-spinner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, BookOpen, BrainCircuit, Github, Linkedin, Star, Calendar, MessageCircle, AlertCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  BrainCircuit,
+  Github,
+  Linkedin,
+  Calendar,
+  MessageCircle,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReviewStars } from "@/components/ui/review-stars";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 
-function ReviewStars({ rating, className }: { rating: number, className?: string }) {
-  const totalStars = 5;
-  const fullStars = Math.floor(rating);
-  const partialStar = rating - fullStars;
-  const emptyStars = totalStars - Math.ceil(rating);
-
-  return (
-    <div className={cn("flex items-center", className)}>
-      {[...Array(fullStars)].map((_, i) => (
-        <Star key={`full-${i}`} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-      ))}
-      {partialStar > 0 && (
-         <div className="relative">
-            <Star key="partial" className="h-5 w-5 text-yellow-400" />
-            <div className="absolute top-0 left-0 overflow-hidden" style={{ width: `${partialStar * 100}%` }}>
-                <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
-            </div>
-        </div>
-      )}
-      {[...Array(emptyStars)].map((_, i) => (
-        <Star key={`empty-${i}`} className="h-5 w-5 text-gray-300" />
-      ))}
-    </div>
-  );
-}
-
 // Generate time slots for the dropdown
 const timeSlots = Array.from({ length: 24 * 2 }, (_, i) => {
-    const hours = Math.floor(i / 2);
-    const minutes = (i % 2) * 30;
-    const date = new Date();
-    date.setHours(hours, minutes);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const hours = Math.floor(i / 2);
+  const minutes = (i % 2) * 30;
+  const date = new Date();
+  date.setHours(hours, minutes);
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 });
-
 
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
   const { userId } = params;
-  
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] =
+    useState<UserProfile | null>(null);
   const [reviews, setReviews] = useState<ReviewType[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  
+
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState("");
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date()
+  );
   const [selectedTime, setSelectedTime] = useState("10:00 AM");
   const [selectedDuration, setSelectedDuration] = useState("1"); // Default 1 hour
   const [isBooking, setIsBooking] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
-      if (typeof userId !== 'string') return;
-      
+      if (typeof userId !== "string") return;
+
       setLoading(true);
       try {
         const [userProfile, userReviews] = await Promise.all([
           getUserProfile(userId),
-          getReviewsForUser(userId)
+          getReviewsForUser(userId),
         ]);
-        
+
         if (userProfile) {
           setProfile(userProfile);
           setReviews(userReviews);
         } else {
-          router.push('/discover');
+          router.push("/discover");
         }
 
         if (currentUser) {
-            const currentProfile = await getUserProfile(currentUser.uid);
-            setCurrentUserProfile(currentProfile);
+          const currentProfile = await getUserProfile(currentUser.uid);
+          setCurrentUserProfile(currentProfile);
         }
-
       } catch (error) {
         console.error("Failed to fetch user data:", error);
-        router.push('/discover');
+        router.push("/discover");
       } finally {
         setLoading(false);
       }
@@ -116,8 +134,15 @@ export default function UserProfilePage() {
   const handleBookingRequest = async () => {
     const duration = parseFloat(selectedDuration);
     const requiredCoins = duration * 10;
-    
-    if (!currentUser || !currentUserProfile || !profile || !selectedSkill || !selectedDate || !selectedTime) {
+
+    if (
+      !currentUser ||
+      !currentUserProfile ||
+      !profile ||
+      !selectedSkill ||
+      !selectedDate ||
+      !selectedTime
+    ) {
       toast({
         title: "Incomplete Information",
         description: "Please select a skill, duration, date, and time.",
@@ -127,12 +152,14 @@ export default function UserProfilePage() {
     }
 
     if ((currentUserProfile.coins || 0) < requiredCoins) {
-        toast({
-            title: "Insufficient Coins",
-            description: `You need ${requiredCoins} coins for a ${duration}-hour session, but you only have ${currentUserProfile.coins || 0}.`,
-            variant: "destructive",
-        });
-        return;
+      toast({
+        title: "Insufficient Coins",
+        description: `You need ${requiredCoins} coins for a ${duration}-hour session, but you only have ${
+          currentUserProfile.coins || 0
+        }.`,
+        variant: "destructive",
+      });
+      return;
     }
 
     setIsBooking(true);
@@ -140,14 +167,18 @@ export default function UserProfilePage() {
       // Parse time like "5:30 PM"
       const timeParts = selectedTime.match(/(\d+):(\d+)\s(AM|PM)/);
       if (!timeParts) {
-        toast({ title: "Invalid Time", description: "Please select a valid time.", variant: "destructive" });
+        toast({
+          title: "Invalid Time",
+          description: "Please select a valid time.",
+          variant: "destructive",
+        });
         setIsBooking(false);
         return;
       }
       let [_, hours, minutes, ampm] = timeParts;
       let hours24 = parseInt(hours, 10);
-      if (ampm === 'PM' && hours24 < 12) hours24 += 12;
-      if (ampm === 'AM' && hours24 === 12) hours24 = 0; // Midnight case
+      if (ampm === "PM" && hours24 < 12) hours24 += 12;
+      if (ampm === "AM" && hours24 === 12) hours24 = 0; // Midnight case
 
       const combinedDateTime = new Date(selectedDate);
       combinedDateTime.setHours(hours24, parseInt(minutes, 10), 0, 0);
@@ -161,7 +192,7 @@ export default function UserProfilePage() {
         dateTime: combinedDateTime.toISOString(),
         duration: duration,
         cost: requiredCoins,
-        status: 'pending'
+        status: "pending",
       });
 
       toast({
@@ -181,7 +212,6 @@ export default function UserProfilePage() {
     }
   };
 
-
   if (loading || authLoading) {
     return <LoadingSpinner text="Loading profile..." />;
   }
@@ -190,16 +220,26 @@ export default function UserProfilePage() {
     return (
       <div className="container mx-auto px-4 py-8 md:py-12 text-center">
         <h1 className="text-2xl font-bold">Profile not found</h1>
-        <p className="text-muted-foreground">The user you are looking for does not exist.</p>
-        <Button onClick={() => router.push('/discover')} className="mt-4">Back to Discover</Button>
+        <p className="text-muted-foreground">
+          The user you are looking for does not exist.
+        </p>
+        <Button onClick={() => router.push("/discover")} className="mt-4">
+          Back to Discover
+        </Button>
       </div>
     );
   }
 
-  const initial = profile.displayName ? profile.displayName.charAt(0).toUpperCase() : 'S';
+  const initial = profile.displayName
+    ? profile.displayName.charAt(0).toUpperCase()
+    : "S";
   const isOwnProfile = currentUser?.uid === profile.uid;
-  const rating = profile.rating ?? 0;
-  const reviewCount = profile.reviewCount ?? 0;
+  const rating =
+    typeof profile.rating === "number" && !isNaN(profile.rating)
+      ? profile.rating
+      : 0;
+  const reviewCount =
+    typeof profile.reviewCount === "number" ? profile.reviewCount : 0;
   const bookingCost = parseFloat(selectedDuration) * 10;
 
   return (
@@ -216,17 +256,21 @@ export default function UserProfilePage() {
             <AvatarFallback className="text-4xl">{initial}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <CardTitle className="font-headline text-4xl mb-2">{profile.displayName}</CardTitle>
+            <CardTitle className="font-headline text-4xl mb-2">
+              {profile.displayName}
+            </CardTitle>
             <div className="flex items-center gap-2 text-muted-foreground">
-                {reviewCount > 0 ? (
-                    <>
-                        <ReviewStars rating={rating} />
-                        <span className="font-semibold">{rating.toFixed(1)}</span>
-                        <span>({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
-                    </>
-                ) : (
-                    <span className="text-muted-foreground">No reviews yet</span>
-                )}
+              {reviewCount > 0 ? (
+                <>
+                  <ReviewStars rating={rating} />
+                  <span className="font-semibold">{rating.toFixed(1)}</span>
+                  <span>
+                    ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No reviews yet</span>
+              )}
             </div>
             <div className="flex gap-2 mt-4">
               {profile.linkedinProfile && (
@@ -252,9 +296,12 @@ export default function UserProfilePage() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Book a Session with {profile.displayName}</DialogTitle>
+                  <DialogTitle>
+                    Book a Session with {profile.displayName}
+                  </DialogTitle>
                   <DialogDescription>
-                    Select a skill, duration, and propose a time for your session.
+                    Select a skill, duration, and propose a time for your
+                    session.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
@@ -267,17 +314,22 @@ export default function UserProfilePage() {
                         <SelectValue placeholder="Select a skill" />
                       </SelectTrigger>
                       <SelectContent>
-                        {profile.skillsToTeach?.map(skill => (
-                          <SelectItem key={skill} value={skill}>{skill}</SelectItem>
+                        {profile.skillsToTeach?.map((skill) => (
+                          <SelectItem key={skill} value={skill}>
+                            {skill}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                   <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="duration" className="text-right">
                       Duration
                     </Label>
-                    <Select onValueChange={setSelectedDuration} defaultValue="1">
+                    <Select
+                      onValueChange={setSelectedDuration}
+                      defaultValue="1"
+                    >
                       <SelectTrigger className="col-span-3 text-foreground">
                         <SelectValue placeholder="Select duration" />
                       </SelectTrigger>
@@ -302,7 +354,11 @@ export default function UserProfilePage() {
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, "PPP") : <span>Pick a date</span>}
+                          {selectedDate ? (
+                            format(selectedDate, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -311,7 +367,12 @@ export default function UserProfilePage() {
                           selected={selectedDate}
                           onSelect={setSelectedDate}
                           initialFocus
-                          disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() - 1))}
+                          disabled={(date) =>
+                            date <
+                            new Date(
+                              new Date().setDate(new Date().getDate() - 1)
+                            )
+                          }
                         />
                       </PopoverContent>
                     </Popover>
@@ -320,30 +381,50 @@ export default function UserProfilePage() {
                     <Label htmlFor="time" className="text-right">
                       Time
                     </Label>
-                     <Select onValueChange={setSelectedTime} defaultValue={selectedTime}>
-                        <SelectTrigger className="col-span-3 text-foreground">
-                            <SelectValue placeholder="Select a time"/>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {timeSlots.map(time => (
-                                <SelectItem key={time} value={time}>{time}</SelectItem>
-                            ))}
-                        </SelectContent>
-                     </Select>
+                    <Select
+                      onValueChange={setSelectedTime}
+                      defaultValue={selectedTime}
+                    >
+                      <SelectTrigger className="col-span-3 text-foreground">
+                        <SelectValue placeholder="Select a time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {timeSlots.map((time) => (
+                          <SelectItem key={time} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                   <div className="mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
-                        <p>Total Cost: <span className="font-bold">{bookingCost} SkillCoins</span></p>
-                        <p className="text-muted-foreground">Your Balance: {currentUserProfile?.coins || 0} SkillCoins</p>
+                  <div className="mt-2 p-3 bg-secondary/50 rounded-md text-sm text-center">
+                    <p>
+                      Total Cost:{" "}
+                      <span className="font-bold">
+                        {bookingCost} SkillCoins
+                      </span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      Your Balance: {currentUserProfile?.coins || 0} SkillCoins
+                    </p>
+                  </div>
+                  {(currentUserProfile?.coins || 0) < bookingCost && (
+                    <div className="flex items-center gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-md">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>You have insufficient coins for this session.</span>
                     </div>
-                     {((currentUserProfile?.coins || 0) < bookingCost) && (
-                        <div className="flex items-center gap-2 text-sm text-destructive p-3 bg-destructive/10 rounded-md">
-                            <AlertCircle className="h-4 w-4" />
-                            <span>You have insufficient coins for this session.</span>
-                        </div>
-                    )}
+                  )}
                 </div>
                 <DialogFooter>
-                  <Button type="submit" onClick={handleBookingRequest} disabled={isBooking || ((currentUserProfile?.coins || 0) < bookingCost)} className="w-full">
+                  <Button
+                    type="submit"
+                    onClick={handleBookingRequest}
+                    disabled={
+                      isBooking ||
+                      (currentUserProfile?.coins || 0) < bookingCost
+                    }
+                    className="w-full"
+                  >
                     {isBooking ? "Sending Request..." : "Send Request"}
                   </Button>
                 </DialogFooter>
@@ -361,8 +442,14 @@ export default function UserProfilePage() {
                 Skills to Teach
               </h3>
               <div className="flex flex-wrap gap-2">
-                {profile.skillsToTeach?.map(skill => (
-                  <Badge key={skill} variant="secondary" className="text-md py-1 px-3">{skill}</Badge>
+                {profile.skillsToTeach?.map((skill) => (
+                  <Badge
+                    key={skill}
+                    variant="secondary"
+                    className="text-md py-1 px-3"
+                  >
+                    {skill}
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -373,46 +460,70 @@ export default function UserProfilePage() {
                 Skills to Learn
               </h3>
               <div className="flex flex-wrap gap-2">
-                {profile.skillsToLearn?.map(skill => (
-                  <Badge key={skill} variant="outline" className="text-md py-1 px-3">{skill}</Badge>
+                {profile.skillsToLearn?.map((skill) => (
+                  <Badge
+                    key={skill}
+                    variant="outline"
+                    className="text-md py-1 px-3"
+                  >
+                    {skill}
+                  </Badge>
                 ))}
               </div>
             </div>
           </div>
-          
+
           <Separator className="my-6" />
 
           <div>
-             <h3 className="text-xl font-headline mb-4">Reviews ({reviews.length})</h3>
-             {reviews.length > 0 ? (
-                <div className="space-y-6">
-                    {reviews.map(review => (
-                        <Card key={review.id} className="bg-secondary/20 border-l-4 border-primary">
-                            <CardHeader>
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <CardTitle className="text-lg">{review.menteeName}</CardTitle>
+            <h3 className="text-xl font-headline mb-4">
+              Reviews ({reviews.length})
+            </h3>
+            {reviews.length > 0 ? (
+              <div className="space-y-6">
+                {reviews.map((review) => (
+                  <Card
+                    key={review.id}
+                    className="bg-secondary/20 border-l-4 border-primary"
+                  >
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {review.menteeName}
+                          </CardTitle>
 
-                                        <CardDescription>{review.createdAt instanceof Timestamp ? new Date(review.createdAt.toDate()).toLocaleDateString() : 'Date not available'}</CardDescription>
-                                    </div>
-                                    <ReviewStars rating={review.rating} />
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-muted-foreground italic">"{review.reviewText}"</p>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-             ) : (
-                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
-                    <MessageCircle className="mx-auto h-12 w-12 text-gray-400" />
-                    <p className="mt-4">No reviews yet.</p>
-                    {!isOwnProfile && <p className="text-sm">Be the first one to book a session and leave a review!</p>}
-                </div>
-             )}
+                          <CardDescription>
+                            {review.createdAt instanceof Timestamp
+                              ? new Date(
+                                  review.createdAt.toDate()
+                                ).toLocaleDateString()
+                              : "Date not available"}
+                          </CardDescription>
+                        </div>
+                        <ReviewStars rating={review.rating} />
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground italic">
+                        "{review.reviewText}"
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                <MessageCircle className="mx-auto h-12 w-12 text-gray-400" />
+                <p className="mt-4">No reviews yet.</p>
+                {!isOwnProfile && (
+                  <p className="text-sm">
+                    Be the first one to book a session and leave a review!
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-
         </CardContent>
       </Card>
     </div>

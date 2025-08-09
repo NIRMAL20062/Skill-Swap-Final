@@ -107,7 +107,7 @@ function WalletPage() {
 
   const currentBalance = profile.coins || 0;
   const balanceValue = currentBalance * 10; // ₹10 per coin
-  const cansaleCoins = currentBalance > 100;
+  const canSellCoins = currentBalance > 100;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -163,21 +163,21 @@ function WalletPage() {
           </Button>
 
           <Button
-            asChild={cansaleCoins}
-            disabled={!cansaleCoins}
+            asChild={canSellCoins}
+            disabled={!canSellCoins}
             variant="outline"
             className="h-14"
             size="lg"
           >
-            {cansaleCoins ? (
-              <Link href="/wallet/sale">
+            {canSellCoins ? (
+              <Link href="/wallet/sell">
                 <Minus className="mr-2 h-5 w-5" />
-                sale Coins
+                Sell Coins
               </Link>
             ) : (
               <>
                 <Minus className="mr-2 h-5 w-5" />
-                sale Coins (Min. 100)
+                Sell Coins (Min. 100)
               </>
             )}
           </Button>
@@ -234,7 +234,7 @@ function WalletPage() {
                       <div>
                         <p className="font-medium">
                           {transaction.type === "purchase" && "Coin Purchase"}
-                          {transaction.type === "sale" && "Coin Sale"}
+                          {transaction.type === "sell" && "Coin Sale"}
                           {transaction.type === "credit" && "Credit"}
                           {transaction.type === "debit" && "Debit"}
                           {transaction.type === "session_earning" &&
@@ -290,4 +290,3 @@ function WalletPage() {
 }
 
 export default WalletPage;
-

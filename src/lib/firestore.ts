@@ -1,10 +1,25 @@
-
 // src/lib/firestore.ts
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, serverTimestamp, addDoc, query, where, runTransaction, Timestamp, writeBatch, orderBy, limit } from "firebase/firestore"; 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  addDoc,
+  query,
+  where,
+  runTransaction,
+  Timestamp,
+  writeBatch,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { db } from "./firebase";
 
 // The email for the admin user
-export const ADMIN_EMAIL = 'admin@skillswap.com';
+export const ADMIN_EMAIL = "admin@skillswap.com";
 
 export interface UserProfile {
   uid: string;
@@ -24,6 +39,17 @@ export interface UserProfile {
   totalRating?: number; // Sum of all ratings received
   coins?: number;
   admin?: boolean;
+
+  // Enhanced wallet fields
+  totalCoinsEarned?: number;
+  totalCoinsSpent?: number;
+  totalCoinsPurchased?: number;
+  totalCoinsSold?: number;
+  paymentMethods?: string[];
+  razorpayCustomerId?: string;
+  isPaymentVerified?: boolean;
+  canSellCoins?: boolean;
+  minimumCoinBalance?: number;
 }
 
 export interface Session {
@@ -36,7 +62,7 @@ export interface Session {
   dateTime: string;
   duration: number; // in hours
   cost: number; // in coins
-  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  status: "pending" | "accepted" | "rejected" | "completed";
   createdAt?: any;
   updatedAt?: any;
   meetingLink?: string;
@@ -46,49 +72,84 @@ export interface Session {
 }
 
 export interface Review {
-    id?: string;
-    sessionId: string;
-    mentorId: string;
-    menteeId: string;
-    menteeName: string;
-    rating: number;
-    reviewText: string;
-    createdAt: Timestamp;
+  id?: string;
+  sessionId: string;
+  mentorId: string;
+  menteeId: string;
+  menteeName: string;
+  rating: number;
+  reviewText: string;
+  createdAt: Timestamp;
 }
 
 export interface Transaction {
-    id?: string;
-    userId: string;
-    type: 'credit' | 'debit';
-    amount: number;
-    description: string;
-    relatedSessionId?: string;
-    timestamp: any;
+  id?: string;
+  userId: string;
+  type:
+    | "credit"
+    | "debit"
+    | "purchase"
+    | "sale"
+    | "session_payment"
+    | "session_earning";
+  amount: number;
+  description: string;
+  relatedSessionId?: string;
+  timestamp: any;
+
+  // Enhanced transaction fields
+  paymentId?: string;
+  exchangeRate?: number;
+  rupeeAmount?: number;
 }
 
+export interface Payment {
+  id?: string;
+  userId: string;
+  type: "purchase" | "sale";
+  amount: number; // Rupees amount
+  coins: number; // Coins involved
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  status: "pending" | "completed" | "failed";
+  createdAt: any;
+  completedAt?: any;
+  metadata: {
+    paymentMethod?: string;
+    currency: string;
+  };
+}
 
 // Function to create a user profile document
-export const createUserProfile = async (uid: string, data: Partial<UserProfile>) => {
+export const createUserProfile = async (
+  uid: string,
+  data: Partial<UserProfile>
+) => {
   const userRef = doc(db, "users", uid);
   const isAdmin = data.email === ADMIN_EMAIL;
-  
-  return setDoc(userRef, {
-    uid,
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    profileComplete: false,
-    rating: 0,
-    reviewCount: 0,
-    totalRating: 0,
-    coins: 100, // Welcome bonus
-    admin: isAdmin,
-  }, { merge: true });
+
+  return setDoc(
+    userRef,
+    {
+      uid,
+      ...data,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      profileComplete: false,
+      rating: 0,
+      reviewCount: 0,
+      totalRating: 0,
+      coins: 100, // Welcome bonus
+      admin: isAdmin,
+    },
+    { merge: true }
+  );
 };
 
-
 // Function to get a user profile
-export const getUserProfile = async (uid:string): Promise<UserProfile | null> => {
+export const getUserProfile = async (
+  uid: string
+): Promise<UserProfile | null> => {
   const userRef = doc(db, "users", uid);
   const docSnap = await getDoc(userRef);
 
@@ -104,12 +165,17 @@ export const getUserProfile = async (uid:string): Promise<UserProfile | null> =>
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const usersCollection = collection(db, "users");
   const usersSnapshot = await getDocs(usersCollection);
-  const usersList = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
+  const usersList = usersSnapshot.docs.map(
+    (doc) => ({ ...doc.data(), uid: doc.id } as UserProfile)
+  );
   return usersList;
-}
+};
 
 // Function to update a user profile
-export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
+export const updateUserProfile = async (
+  uid: string,
+  data: Partial<UserProfile>
+) => {
   const userRef = doc(db, "users", uid);
 
   const existingProfile = await getUserProfile(uid);
@@ -117,22 +183,24 @@ export const updateUserProfile = async (uid: string, data: Partial<UserProfile>)
 
   const { skillsToLearn, skillsToTeach, linkedinProfile } = mergedData;
 
-  const isComplete = 
-    Array.isArray(skillsToLearn) && skillsToLearn.length > 0 &&
-    Array.isArray(skillsToTeach) && skillsToTeach.length > 0 &&
-    linkedinProfile && linkedinProfile.trim() !== '';
+  const isComplete =
+    Array.isArray(skillsToLearn) &&
+    skillsToLearn.length > 0 &&
+    Array.isArray(skillsToTeach) &&
+    skillsToTeach.length > 0 &&
+    linkedinProfile &&
+    linkedinProfile.trim() !== "";
 
   return updateDoc(userRef, {
     ...data,
     updatedAt: serverTimestamp(),
-    profileComplete: isComplete
+    profileComplete: isComplete,
   });
 };
 
-
 // Function to request a new session
-export const requestSession = async (sessionData: Omit<Session, 'id'>) => {
-  const sessionsCollection = collection(db, 'sessions');
+export const requestSession = async (sessionData: Omit<Session, "id">) => {
+  const sessionsCollection = collection(db, "sessions");
   return await addDoc(sessionsCollection, {
     ...sessionData,
     createdAt: serverTimestamp(),
@@ -145,220 +213,281 @@ export const requestSession = async (sessionData: Omit<Session, 'id'>) => {
 
 // Function to get all sessions for a user (as mentee or mentor)
 export const getUserSessions = async (userId: string): Promise<Session[]> => {
-    const sessionsCollection = collection(db, 'sessions');
-    const menteeQuery = query(sessionsCollection, where('menteeId', '==', userId));
-    const mentorQuery = query(sessionsCollection, where('mentorId', '==', userId));
+  const sessionsCollection = collection(db, "sessions");
+  const menteeQuery = query(
+    sessionsCollection,
+    where("menteeId", "==", userId)
+  );
+  const mentorQuery = query(
+    sessionsCollection,
+    where("mentorId", "==", userId)
+  );
 
-    const [menteeSnapshot, mentorSnapshot] = await Promise.all([
-        getDocs(menteeQuery),
-        getDocs(mentorQuery)
-    ]);
-    
-    const sessions: Session[] = [];
-    menteeSnapshot.forEach(doc => {
-        sessions.push({ id: doc.id, ...doc.data() } as Session);
-    });
-    mentorSnapshot.forEach(doc => {
-        if (!sessions.find(s => s.id === doc.id)) {
-            sessions.push({ id: doc.id, ...doc.data() } as Session);
-        }
-    });
+  const [menteeSnapshot, mentorSnapshot] = await Promise.all([
+    getDocs(menteeQuery),
+    getDocs(mentorQuery),
+  ]);
 
-    return sessions.sort((a, b) => {
-      const dateA = a.createdAt?.toDate() ?? 0;
-      const dateB = b.createdAt?.toDate() ?? 0;
-      if (dateA > dateB) return -1;
-      if (dateA < dateB) return 1;
-      return 0;
-    });
+  const sessions: Session[] = [];
+  menteeSnapshot.forEach((doc) => {
+    sessions.push({ id: doc.id, ...doc.data() } as Session);
+  });
+  mentorSnapshot.forEach((doc) => {
+    if (!sessions.find((s) => s.id === doc.id)) {
+      sessions.push({ id: doc.id, ...doc.data() } as Session);
+    }
+  });
+
+  return sessions.sort((a, b) => {
+    const dateA = a.createdAt?.toDate() ?? 0;
+    const dateB = b.createdAt?.toDate() ?? 0;
+    if (dateA > dateB) return -1;
+    if (dateA < dateB) return 1;
+    return 0;
+  });
 };
 
 // Function to update a session's status
-export const updateSessionStatus = async (sessionId: string, status: Session['status'], meetingLink?: string) => {
-    const sessionRef = doc(db, 'sessions', sessionId);
-    const updateData: any = {
-        status,
-        updatedAt: serverTimestamp(),
-    };
-    if (meetingLink) {
-        updateData.meetingLink = meetingLink;
+export const updateSessionStatus = async (
+  sessionId: string,
+  status: Session["status"],
+  meetingLink?: string
+) => {
+  const sessionRef = doc(db, "sessions", sessionId);
+  const updateData: any = {
+    status,
+    updatedAt: serverTimestamp(),
+  };
+  if (meetingLink) {
+    updateData.meetingLink = meetingLink;
+  }
+  return updateDoc(sessionRef, updateData);
+};
+
+export const markSessionAsComplete = async (
+  sessionId: string,
+  userId: string
+) => {
+  const sessionRef = doc(db, "sessions", sessionId);
+
+  return runTransaction(db, async (transaction) => {
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists()) {
+      throw new Error("Session does not exist!");
     }
-    return updateDoc(sessionRef, updateData);
-};
 
-export const markSessionAsComplete = async (sessionId: string, userId: string) => {
-    const sessionRef = doc(db, 'sessions', sessionId);
+    const sessionData = sessionDoc.data() as Session;
+    if (sessionData.status === "completed") {
+      return sessionData;
+    }
 
-    return runTransaction(db, async (transaction) => {
-        const sessionDoc = await transaction.get(sessionRef);
-        if (!sessionDoc.exists()) {
-            throw new Error("Session does not exist!");
-        }
+    const isMentor = sessionData.mentorId === userId;
+    const currentUserHasCompleted = isMentor
+      ? sessionData.mentorCompleted
+      : sessionData.menteeCompleted;
 
-        const sessionData = sessionDoc.data() as Session;
-        if (sessionData.status === 'completed') {
-            return sessionData; 
-        }
+    if (currentUserHasCompleted) {
+      throw new Error("You have already marked this session as complete.");
+    }
 
-        const isMentor = sessionData.mentorId === userId;
-        const currentUserHasCompleted = isMentor ? sessionData.mentorCompleted : sessionData.menteeCompleted;
+    const updateData: Partial<Session> = {};
+    if (isMentor) {
+      updateData.mentorCompleted = true;
+    } else {
+      updateData.menteeCompleted = true;
+    }
 
-        if (currentUserHasCompleted) {
-             throw new Error("You have already marked this session as complete.");
-        }
-        
-        const updateData: Partial<Session> = {};
-        if (isMentor) {
-            updateData.mentorCompleted = true;
-        } else {
-            updateData.menteeCompleted = true;
-        }
+    const bothPartiesCompleted =
+      (isMentor && sessionData.menteeCompleted) ||
+      (!isMentor && sessionData.mentorCompleted);
 
-        const bothPartiesCompleted = (isMentor && sessionData.menteeCompleted) || (!isMentor && sessionData.mentorCompleted);
-        
-        if (bothPartiesCompleted) {
-            updateData.status = 'completed';
-            
-            const { menteeId, mentorId, cost, duration, skill } = sessionData;
-            const mentorShare = duration * 8;
-            const adminShare = cost - mentorShare;
+    if (bothPartiesCompleted) {
+      updateData.status = "completed";
 
-            const menteeRef = doc(db, 'users', menteeId);
-            const mentorRef = doc(db, 'users', mentorId);
-            const adminQuery = query(collection(db, 'users'), where('admin', '==', true));
-            
-            const adminSnapshot = await getDocs(adminQuery);
-            if (adminSnapshot.empty) throw new Error("Admin account not found.");
-            const adminRef = adminSnapshot.docs[0].ref;
+      const { menteeId, mentorId, cost, duration, skill } = sessionData;
+      const mentorShare = duration * 8;
+      const adminShare = cost - mentorShare;
 
-            const [menteeDoc, mentorDoc, adminDoc] = await Promise.all([
-              transaction.get(menteeRef),
-              transaction.get(mentorRef),
-              transaction.get(adminRef)
-            ]);
+      const menteeRef = doc(db, "users", menteeId);
+      const mentorRef = doc(db, "users", mentorId);
+      const adminQuery = query(
+        collection(db, "users"),
+        where("admin", "==", true)
+      );
 
-            if (!menteeDoc.exists() || !mentorDoc.exists() || !adminDoc.exists()) {
-                throw new Error("One or more user profiles not found for transaction.");
-            }
+      const adminSnapshot = await getDocs(adminQuery);
+      if (adminSnapshot.empty) throw new Error("Admin account not found.");
+      const adminRef = adminSnapshot.docs[0].ref;
 
-            const menteeData = menteeDoc.data() as UserProfile;
-            const mentorData = mentorDoc.data() as UserProfile;
-            const adminData = adminDoc.data() as UserProfile;
-            
-            transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
-            transaction.update(mentorRef, { coins: (mentorData.coins || 0) + mentorShare });
-            transaction.update(adminRef, { coins: (adminData.coins || 0) + adminShare });
+      const [menteeDoc, mentorDoc, adminDoc] = await Promise.all([
+        transaction.get(menteeRef),
+        transaction.get(mentorRef),
+        transaction.get(adminRef),
+      ]);
 
-            // Create transaction logs
-            const description = `Session for ${skill} with ${isMentor ? sessionData.menteeName : sessionData.mentorName}`;
-            
-            const menteeTxRef = doc(collection(db, "transactions"));
-            transaction.set(menteeTxRef, {
-                userId: menteeId, type: 'debit', amount: cost, description,
-                relatedSessionId: sessionId, timestamp: serverTimestamp(),
-            });
+      if (!menteeDoc.exists() || !mentorDoc.exists() || !adminDoc.exists()) {
+        throw new Error("One or more user profiles not found for transaction.");
+      }
 
-            const mentorTxRef = doc(collection(db, "transactions"));
-            transaction.set(mentorTxRef, {
-                userId: mentorId, type: 'credit', amount: mentorShare, description,
-                relatedSessionId: sessionId, timestamp: serverTimestamp(),
-            });
+      const menteeData = menteeDoc.data() as UserProfile;
+      const mentorData = mentorDoc.data() as UserProfile;
+      const adminData = adminDoc.data() as UserProfile;
 
-            const adminTxRef = doc(collection(db, "transactions"));
-            transaction.set(adminTxRef, {
-                userId: adminDoc.id, type: 'credit', amount: adminShare, description: `Admin fee for session: ${sessionId}`,
-                relatedSessionId: sessionId, timestamp: serverTimestamp(),
-            });
-        }
-        
-        transaction.update(sessionRef, { ...updateData, updatedAt: serverTimestamp() });
-        return { ...sessionData, ...updateData };
+      transaction.update(menteeRef, { coins: (menteeData.coins || 0) - cost });
+      transaction.update(mentorRef, {
+        coins: (mentorData.coins || 0) + mentorShare,
+      });
+      transaction.update(adminRef, {
+        coins: (adminData.coins || 0) + adminShare,
+      });
+
+      // Create transaction logs
+      const description = `Session for ${skill} with ${
+        isMentor ? sessionData.menteeName : sessionData.mentorName
+      }`;
+
+      const menteeTxRef = doc(collection(db, "transactions"));
+      transaction.set(menteeTxRef, {
+        userId: menteeId,
+        type: "debit",
+        amount: cost,
+        description,
+        relatedSessionId: sessionId,
+        timestamp: serverTimestamp(),
+      });
+
+      const mentorTxRef = doc(collection(db, "transactions"));
+      transaction.set(mentorTxRef, {
+        userId: mentorId,
+        type: "credit",
+        amount: mentorShare,
+        description,
+        relatedSessionId: sessionId,
+        timestamp: serverTimestamp(),
+      });
+
+      const adminTxRef = doc(collection(db, "transactions"));
+      transaction.set(adminTxRef, {
+        userId: adminDoc.id,
+        type: "credit",
+        amount: adminShare,
+        description: `Admin fee for session: ${sessionId}`,
+        relatedSessionId: sessionId,
+        timestamp: serverTimestamp(),
+      });
+    }
+
+    transaction.update(sessionRef, {
+      ...updateData,
+      updatedAt: serverTimestamp(),
     });
+    return { ...sessionData, ...updateData };
+  });
 };
-
 
 export const getReviewsForUser = async (userId: string): Promise<Review[]> => {
-    const reviewsCollection = collection(db, 'reviews');
-    const q = query(reviewsCollection, where('mentorId', '==', userId), orderBy('createdAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    
-    const reviews: Review[] = [];
-    querySnapshot.forEach((doc) => {
-        reviews.push({ id: doc.id, ...doc.data() } as Review);
-    });
-    return reviews;
-}
+  const reviewsCollection = collection(db, "reviews");
+  const q = query(
+    reviewsCollection,
+    where("mentorId", "==", userId),
+    orderBy("createdAt", "desc")
+  );
+  const querySnapshot = await getDocs(q);
 
-export const submitReview = async (reviewData: Omit<Review, 'id' | 'createdAt'>) => {
-    return runTransaction(db, async (transaction) => {
-        const sessionRef = doc(db, 'sessions', reviewData.sessionId);
-        const mentorRef = doc(db, 'users', reviewData.mentorId);
-
-        // 1. Validate session and check for existing review
-        const sessionDoc = await transaction.get(sessionRef);
-        if (!sessionDoc.exists() || sessionDoc.data().feedbackSubmitted) {
-            throw new Error("Feedback has already been submitted for this session or the session does not exist.");
-        }
-
-        // 2. Get mentor's current rating data
-        const mentorDoc = await transaction.get(mentorRef);
-        if (!mentorDoc.exists()) {
-            throw new Error("Mentor profile not found.");
-        }
-        const mentorData = mentorDoc.data() as UserProfile;
-
-        // 3. Create the new review
-        const newReviewRef = doc(collection(db, 'reviews')); 
-        transaction.set(newReviewRef, {
-            ...reviewData,
-            createdAt: serverTimestamp(),
-        });
-
-        // 4. Calculate new rating values
-        const currentReviewCount = mentorData.reviewCount || 0;
-        const currentTotalRating = mentorData.totalRating || 0;
-        const newReviewCount = currentReviewCount + 1;
-        const newTotalRating = currentTotalRating + reviewData.rating;
-        const newAverageRating = newTotalRating / newReviewCount;
-
-        // 5. Update the mentor's profile with new rating
-        transaction.update(mentorRef, {
-            reviewCount: newReviewCount,
-            totalRating: newTotalRating,
-            rating: newAverageRating,
-        });
-        
-        // 6. Mark the session as having feedback submitted
-        transaction.update(sessionRef, { feedbackSubmitted: true, updatedAt: serverTimestamp() });
-    });
+  const reviews: Review[] = [];
+  querySnapshot.forEach((doc) => {
+    reviews.push({ id: doc.id, ...doc.data() } as Review);
+  });
+  return reviews;
 };
 
+export const submitReview = async (
+  reviewData: Omit<Review, "id" | "createdAt">
+) => {
+  return runTransaction(db, async (transaction) => {
+    const sessionRef = doc(db, "sessions", reviewData.sessionId);
+    const mentorRef = doc(db, "users", reviewData.mentorId);
 
-export const getUserTransactions = async (userId: string): Promise<Transaction[]> => {
-    const transactionsCollection = collection(db, 'transactions');
-    const q = query(transactionsCollection, where('userId', '==', userId), orderBy('timestamp', 'desc'));
-    const querySnapshot = await getDocs(q);
+    // 1. Validate session and check for existing review
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists() || sessionDoc.data().feedbackSubmitted) {
+      throw new Error(
+        "Feedback has already been submitted for this session or the session does not exist."
+      );
+    }
 
-    const transactions: Transaction[] = [];
-    querySnapshot.forEach((doc) => {
-        transactions.push({ id: doc.id, ...doc.data() } as Transaction);
+    // 2. Get mentor's current rating data
+    const mentorDoc = await transaction.get(mentorRef);
+    if (!mentorDoc.exists()) {
+      throw new Error("Mentor profile not found.");
+    }
+    const mentorData = mentorDoc.data() as UserProfile;
+
+    // 3. Create the new review
+    const newReviewRef = doc(collection(db, "reviews"));
+    transaction.set(newReviewRef, {
+      ...reviewData,
+      createdAt: serverTimestamp(),
     });
-    return transactions;
-}
 
-export const adjustUserCoins = async (userId: string, newCoinBalance: number) => {
-    const userRef = doc(db, 'users', userId);
-    return updateDoc(userRef, {
-        coins: newCoinBalance,
-        updatedAt: serverTimestamp(),
+    // 4. Calculate new rating values
+    const currentReviewCount = mentorData.reviewCount || 0;
+    const currentTotalRating = mentorData.totalRating || 0;
+    const newReviewCount = currentReviewCount + 1;
+    const newTotalRating = currentTotalRating + reviewData.rating;
+    const newAverageRating = newTotalRating / newReviewCount;
+
+    // 5. Update the mentor's profile with new rating
+    transaction.update(mentorRef, {
+      reviewCount: newReviewCount,
+      totalRating: newTotalRating,
+      rating: newAverageRating,
     });
-}
+
+    // 6. Mark the session as having feedback submitted
+    transaction.update(sessionRef, {
+      feedbackSubmitted: true,
+      updatedAt: serverTimestamp(),
+    });
+  });
+};
+
+export const getUserTransactions = async (
+  userId: string
+): Promise<Transaction[]> => {
+  const transactionsCollection = collection(db, "transactions");
+  const q = query(
+    transactionsCollection,
+    where("userId", "==", userId),
+    orderBy("timestamp", "desc")
+  );
+  const querySnapshot = await getDocs(q);
+
+  const transactions: Transaction[] = [];
+  querySnapshot.forEach((doc) => {
+    transactions.push({ id: doc.id, ...doc.data() } as Transaction);
+  });
+  return transactions;
+};
+
+export const adjustUserCoins = async (
+  userId: string,
+  newCoinBalance: number
+) => {
+  const userRef = doc(db, "users", userId);
+  return updateDoc(userRef, {
+    coins: newCoinBalance,
+    updatedAt: serverTimestamp(),
+  });
+};
 
 // Get top users for leaderboard
 export const getLeaderboard = async (count: number): Promise<UserProfile[]> => {
-    const usersCollection = collection(db, "users");
-    const q = query(usersCollection, orderBy("rating", "desc"), limit(count));
-    const querySnapshot = await getDocs(q);
-    const usersList = querySnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as UserProfile));
-    return usersList;
-}
+  const usersCollection = collection(db, "users");
+  const q = query(usersCollection, orderBy("rating", "desc"), limit(count));
+  const querySnapshot = await getDocs(q);
+  const usersList = querySnapshot.docs.map(
+    (doc) => ({ ...doc.data(), uid: doc.id } as UserProfile)
+  );
+  return usersList;
+};
