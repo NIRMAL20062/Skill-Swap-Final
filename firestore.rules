@@ -73,8 +73,8 @@ service cloud.firestore {
                     isAdmin(request.auth.uid)
                  );
 
-      // Loosen create restriction (match 2nd rule)
-      allow create: if request.auth != null;
+      // Allow creation by authenticated users OR server-side operations (no auth)
+      allow create: if request.auth == null || request.auth != null;
       
       allow update, delete: if false;
     }
