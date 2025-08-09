@@ -19,6 +19,7 @@ This guide will help you deploy your SkillSwap application to Render.
 5. Add the following environment variables:
 
 ### 🔥 Firebase Configuration
+
 ```
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyDPESmh_CrqwGB9QSgxtTqFwmmFy7DFD_c
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=local-testing-56e7c.firebaseapp.com
@@ -30,17 +31,20 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-GNWDNF2DMN
 ```
 
 ### 🤖 AI Configuration
+
 ```
 GEMINI_API_KEY=AIzaSyDzmpEdUyEJJdWQJdWjjQt29mgWSxgzgHI
 ```
 
 ### 💳 Payment Configuration (Razorpay)
+
 ```
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_JfjVKSSpK7kh1B
 RAZORPAY_KEY_SECRET=P5elV6PZlD407O2ILsmby6Lo
 ```
 
 ### 📧 Email Configuration
+
 ```
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
@@ -52,6 +56,7 @@ SEND_REAL_EMAILS=true
 ```
 
 ### ⚙️ App Configuration
+
 ```
 NODE_ENV=production
 ```
@@ -61,6 +66,7 @@ NODE_ENV=production
 ### Step 1: Push Your Code to GitHub
 
 1. **Initialize Git** (if not already done):
+
    ```bash
    git init
    git add .
@@ -68,6 +74,7 @@ NODE_ENV=production
    ```
 
 2. **Create GitHub Repository**:
+
    - Go to GitHub and create a new repository
    - Name it `skillswap-app` or similar
 
@@ -83,10 +90,12 @@ NODE_ENV=production
 1. **Go to Render Dashboard**
 2. **Click "New +"** → **Web Service**
 3. **Connect GitHub Repository**:
+
    - Select your SkillSwap repository
    - Click "Connect"
 
 4. **Configure Service**:
+
    - **Name**: `skillswap` (or your preferred name)
    - **Environment**: `Node`
    - **Region**: Choose closest to your users
@@ -95,6 +104,7 @@ NODE_ENV=production
    - **Start Command**: `npm start`
 
 5. **Environment Variables**:
+
    - Select your `skillswap-env` environment group
    - Or add variables manually
 
@@ -113,17 +123,20 @@ NODE_ENV=production
 ### ✅ Test Core Functionality
 
 1. **Authentication**:
+
    - [ ] User registration works
    - [ ] Email verification works
    - [ ] Google OAuth works
    - [ ] Login/logout works
 
 2. **Profile Management**:
+
    - [ ] Profile creation works
    - [ ] Profile editing works
    - [ ] Skill updates work
 
 3. **Payment System**:
+
    - [ ] Razorpay integration works
    - [ ] Coin purchase works
    - [ ] Email confirmations sent
@@ -138,16 +151,19 @@ NODE_ENV=production
 ### 🔧 Common Issues & Solutions
 
 #### Build Errors
+
 - **Node.js Version**: Render uses Node 18 by default
 - **Memory Issues**: Upgrade to Starter plan if needed
 - **Dependencies**: Ensure all packages are in `dependencies`, not `devDependencies`
 
 #### Runtime Errors
+
 - **Environment Variables**: Double-check all variables are set correctly
 - **Firebase Rules**: Ensure Firestore rules allow production domain
 - **Email Service**: Verify Gmail app password is correct
 
 #### Performance Issues
+
 - **Cold Starts**: Free tier has cold starts; upgrade for better performance
 - **Build Time**: Large apps may need longer build times
 
@@ -179,6 +195,7 @@ git push origin main  # Automatically triggers deployment
 ## 🚨 Production Considerations
 
 ### 🔒 Security
+
 - [ ] Use production Firebase project
 - [ ] Use production Razorpay keys
 - [ ] Enable Firestore security rules
@@ -186,17 +203,20 @@ git push origin main  # Automatically triggers deployment
 - [ ] Enable HTTPS only
 
 ### 📈 Performance
+
 - [ ] Enable compression
 - [ ] Optimize images
 - [ ] Use CDN for static assets
 - [ ] Monitor performance metrics
 
 ### 💾 Database
+
 - [ ] Set up proper Firestore indexes
 - [ ] Configure backup strategy
 - [ ] Monitor usage quotas
 
 ### 📧 Email Service
+
 - [ ] Set up dedicated email service (SendGrid/Mailgun for production)
 - [ ] Configure proper SPF/DKIM records
 - [ ] Monitor email delivery rates
@@ -217,6 +237,7 @@ Your SkillSwap application is now live! 🚀
 **Your live URL**: `https://your-service-name.onrender.com`
 
 Remember to:
+
 - Test thoroughly before promoting to users
 - Set up monitoring and alerts
 - Plan for scaling as you grow

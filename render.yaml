@@ -6,16 +6,16 @@ services:
     name: skillswap
     env: node
     plan: free # Change to a paid plan for production apps
-    buildCommand: 'npm install && npm run build'
-    startCommand: 'npm start'
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
     envVars:
       # Environment Group - create this in Render dashboard
       - fromGroup: skillswap-env
-      
+
       # App Configuration
       - key: NODE_ENV
         value: production
-        
+
       # Firebase Configuration
       - key: NEXT_PUBLIC_FIREBASE_API_KEY
         sync: false
@@ -31,17 +31,17 @@ services:
         sync: false
       - key: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
         sync: false
-        
+
       # AI Configuration
       - key: GEMINI_API_KEY
         sync: false
-        
+
       # Payment Configuration (Razorpay)
       - key: NEXT_PUBLIC_RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-        
+
       # Email Configuration
       - key: EMAIL_HOST
         sync: false

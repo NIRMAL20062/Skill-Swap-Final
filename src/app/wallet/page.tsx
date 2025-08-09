@@ -35,7 +35,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-function WalletPage() {
+export default function WalletPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -106,8 +106,8 @@ function WalletPage() {
   }
 
   const currentBalance = profile.coins || 0;
-  const balanceValue = currentBalance * 10; // ₹10 per coin
-  const cansaleCoins = currentBalance > 100;
+  const balanceValue = currentBalance * 10; // INR 10 per coin
+  const canSellCoins = currentBalance > 100;
 
   return (
     <div className="container mx-auto px-4 py-8 md:py-12">
@@ -115,171 +115,293 @@ function WalletPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold">My Wallet</h1>
+            <h1 className="text-3xl md:text-4xl font-headline font-bold mb-2">
+              💼 My Wallet
+            </h1>
             <p className="text-muted-foreground">
               Manage your SkillCoins and transactions
             </p>
           </div>
         </div>
 
-        {/* Balance Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="border-primary/20">
+        {/* Balance Card */}
+        <Card className="mb-8 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <Coins className="w-8 h-8 text-primary" />
+              Current Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center space-y-4">
+              <div>
+                <p className="text-4xl md:text-5xl font-bold text-primary">
+                  {currentBalance}
+                  <span className="text-xl ml-2 text-muted-foreground">
+                    SkillCoins
+                  </span>
+                </p>
+                <p className="text-xl text-muted-foreground">
+                  ≈ INR {balanceValue.toLocaleString()} value
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button asChild size="lg" className="min-w-40">
+                  <Link href="/wallet/purchase">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Buy Coins
+                  </Link>
+                </Button>
+
+                <Button
+                  asChild
+                  variant={canSellCoins ? "outline" : "secondary"}
+                  size="lg"
+                  className="min-w-40"
+                  disabled={!canSellCoins}
+                >
+                  {canSellCoins ? (
+                    <Link href="/wallet/sell">
+                      <Minus className="w-5 h-5 mr-2" />
+                      Sell Coins
+                    </Link>
+                  ) : (
+                    <span>
+                      <Minus className="w-5 h-5 mr-2" />
+                      Sell Coins
+                    </span>
+                  )}
+                </Button>
+              </div>
+
+              {!canSellCoins && (
+                <p className="text-sm text-muted-foreground">
+                  ⚠️ Minimum 100+ coins required to sell
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Current Balance
+                Total Earned
               </CardTitle>
-              <Coins className="h-4 w-4 text-primary" />
+              <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">
-                {currentBalance} coins
+              <div className="text-2xl font-bold text-green-600">
+                {profile.totalCoinsEarned || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                ≈ ₹{balanceValue.toLocaleString()}
+                coins from sessions
               </p>
             </CardContent>
           </Card>
 
-          <Card className="border-green-200">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Coin Value</CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
+              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+              <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">₹10</div>
-              <p className="text-xs text-muted-foreground">per coin</p>
+              <div className="text-2xl font-bold text-red-600">
+                {profile.totalCoinsSpent || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">coins on sessions</p>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Button asChild className="h-14" size="lg">
-            <Link href="/wallet/purchase">
-              <Plus className="mr-2 h-5 w-5" />
-              Buy Coins
-            </Link>
-          </Button>
-
-          <Button
-            asChild={cansaleCoins}
-            disabled={!cansaleCoins}
-            variant="outline"
-            className="h-14"
-            size="lg"
-          >
-            {cansaleCoins ? (
-              <Link href="/wallet/sale">
-                <Minus className="mr-2 h-5 w-5" />
-                sale Coins
-              </Link>
-            ) : (
-              <>
-                <Minus className="mr-2 h-5 w-5" />
-                sale Coins (Min. 100)
-              </>
-            )}
-          </Button>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Purchased</CardTitle>
+              <CreditCard className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">
+                {profile.totalCoinsPurchased || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">coins bought</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Transaction History */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <History className="h-5 w-5" />
-                  Transaction History
-                </CardTitle>
-                <CardDescription>Your recent coin transactions</CardDescription>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Transaction History
+            </CardTitle>
+            <CardDescription>
+              Complete history of your wallet activities and payments
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No transactions yet</p>
-                <p className="text-sm">
+              <div className="text-center py-12 text-muted-foreground">
+                <History className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <h3 className="font-medium text-lg mb-2">
+                  No transactions yet
+                </h3>
+                <p className="text-sm mb-4">
                   Your transaction history will appear here
                 </p>
+                <Button asChild variant="outline">
+                  <Link href="/wallet/purchase">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Purchase Your First Coins
+                  </Link>
+                </Button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {transactions.map((transaction) => (
-                  <div
-                    key={transaction.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-full ${
-                          transaction.type === "credit" ||
-                          transaction.type === "purchase" ||
-                          transaction.type === "session_earning"
-                            ? "bg-green-100 text-green-600"
-                            : "bg-red-100 text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "credit" ||
-                        transaction.type === "purchase" ||
-                        transaction.type === "session_earning" ? (
-                          <TrendingUp className="h-4 w-4" />
+              <div className="space-y-3">
+                {transactions.map((transaction) => {
+                  const isCredit =
+                    transaction.type === "credit" ||
+                    transaction.type === "purchase" ||
+                    transaction.type === "session_earning";
+
+                  const getTransactionIcon = () => {
+                    switch (transaction.type) {
+                      case "purchase":
+                        return <CreditCard className="w-4 h-4" />;
+                      case "sale":
+                        return <Minus className="w-4 h-4" />;
+                      case "session_earning":
+                        return <TrendingUp className="w-4 h-4" />;
+                      case "session_payment":
+                        return <TrendingDown className="w-4 h-4" />;
+                      default:
+                        return isCredit ? (
+                          <Plus className="w-4 h-4" />
                         ) : (
-                          <TrendingDown className="h-4 w-4" />
-                        )}
-                      </div>
+                          <Minus className="w-4 h-4" />
+                        );
+                    }
+                  };
 
-                      <div>
-                        <p className="font-medium">
-                          {transaction.type === "purchase" && "Coin Purchase"}
-                          {transaction.type === "sale" && "Coin Sale"}
-                          {transaction.type === "credit" && "Credit"}
-                          {transaction.type === "debit" && "Debit"}
-                          {transaction.type === "session_earning" &&
-                            "Session Earning"}
-                          {transaction.type === "session_payment" &&
-                            "Session Payment"}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {transaction.timestamp
-                            ?.toDate?.()
-                            ?.toLocaleDateString() || "Recent"}
-                        </p>
-                        {transaction.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {transaction.description}
+                  const getTransactionTitle = () => {
+                    switch (transaction.type) {
+                      case "purchase":
+                        return "💳 Coin Purchase";
+                      case "sale":
+                        return "💰 Coin Sale";
+                      case "session_earning":
+                        return "🎯 Session Earning";
+                      case "session_payment":
+                        return "📚 Session Payment";
+                      case "credit":
+                        return "✅ Credit Added";
+                      case "debit":
+                        return "❌ Debit";
+                      default:
+                        return transaction.type;
+                    }
+                  };
+
+                  return (
+                    <div
+                      key={transaction.id}
+                      className={`p-4 border rounded-lg transition-all hover:shadow-md ${
+                        isCredit
+                          ? "border-green-200 bg-green-50/50"
+                          : "border-red-200 bg-red-50/50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`p-2.5 rounded-full ${
+                              isCredit
+                                ? "bg-green-100 text-green-600"
+                                : "bg-red-100 text-red-600"
+                            }`}
+                          >
+                            {getTransactionIcon()}
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="font-semibold text-sm">
+                                {getTransactionTitle()}
+                              </p>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  isCredit
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {isCredit ? "Added" : "Spent"}
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {transaction.description ||
+                                "No description available"}
+                            </p>
+
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <span>
+                                📅{" "}
+                                {transaction.timestamp
+                                  ?.toDate?.()
+                                  ?.toLocaleDateString() || "Recent"}
+                              </span>
+                              <span>
+                                🕒{" "}
+                                {transaction.timestamp
+                                  ?.toDate?.()
+                                  ?.toLocaleTimeString() || "N/A"}
+                              </span>
+                              {transaction.exchangeRate && (
+                                <span>
+                                  💱 INR {transaction.exchangeRate}/coin
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p
+                            className={`font-bold text-lg ${
+                              isCredit ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}
+                            {transaction.amount} coins
                           </p>
-                        )}
+
+                          {transaction.rupeeAmount && (
+                            <p className="text-sm font-medium text-muted-foreground">
+                              INR {transaction.rupeeAmount.toLocaleString()}
+                            </p>
+                          )}
+
+                          {transaction.paymentId && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ID: {transaction.paymentId.slice(-8)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
 
-                    <div className="text-right">
-                      <p
-                        className={`font-semibold ${
-                          transaction.type === "credit" ||
-                          transaction.type === "purchase" ||
-                          transaction.type === "session_earning"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "credit" ||
-                        transaction.type === "purchase" ||
-                        transaction.type === "session_earning"
-                          ? "+"
-                          : "-"}
-                        {transaction.amount} coins
-                      </p>
-                      {transaction.rupeeAmount && (
-                        <p className="text-sm text-muted-foreground">
-                          ₹{transaction.rupeeAmount}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                {/* View More Button */}
+                <div className="pt-4 text-center">
+                  <Button variant="outline" className="w-full">
+                    <History className="w-4 h-4 mr-2" />
+                    View All Transactions
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
@@ -288,6 +410,3 @@ function WalletPage() {
     </div>
   );
 }
-
-export default WalletPage;
-

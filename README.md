@@ -21,35 +21,41 @@
 ## ✨ Features Overview
 
 ### 🔐 **Authentication & Security**
+
 - 🎭 **Multi-Auth Support**: Email/Password + Google OAuth
 - ✅ **Email Verification**: Secure account activation
 - 🛡️ **Firebase Security Rules**: Advanced access control
 - 👑 **Admin System**: Privileged user management
 
 ### 💰 **Coin-Based Economy**
+
 - 🎁 **Welcome Bonus**: 100 SkillCoins for new users
 - 💎 **Smart Pricing**: 10 coins/hour session rate
 - 📊 **Revenue Split**: 80% mentor, 20% platform
 - 💳 **Wallet System**: Complete transaction history
 
 ### 🎯 **Skill Discovery**
+
 - 🔍 **Advanced Search**: Find mentors by skills & keywords
 - 🎨 **Beautiful Cards**: Intuitive user profiles
 - ⭐ **Rating System**: Community-driven quality control
 - 🌟 **Public Profiles**: Showcase your expertise
 
 ### 📅 **Session Management**
+
 - 📱 **Easy Booking**: Streamlined scheduling system
 - 🔄 **Status Tracking**: Pending → Accepted → Completed
 - ✅ **Dual Confirmation**: Both parties verify completion
 - 🎥 **Google Meet**: Integrated video conferencing
 
 ### 🤖 **AI-Powered Features**
+
 - 💬 **Smart Chatbot**: Get instant app assistance
 - 🧠 **Skill Suggestions**: AI recommends relevant skills
 - 🎯 **Profile Enhancement**: Optimize your visibility
 
 ### 👨‍💼 **Admin Dashboard**
+
 - 📊 **Analytics**: Platform statistics & insights
 - 👥 **User Management**: Complete user oversight
 - 🏆 **Leaderboard**: Top performers showcase
@@ -60,6 +66,7 @@
 ## 🛠️ Tech Stack
 
 ### 🎨 **Frontend**
+
 ```bash
 ⚛️  React 18 + Next.js 15      # Modern React framework
 📘 TypeScript                   # Type-safe development
@@ -71,6 +78,7 @@
 ```
 
 ### 🔧 **Backend**
+
 ```bash
 🔥 Firebase Firestore          # NoSQL cloud database
 🔐 Firebase Auth               # User authentication
@@ -80,6 +88,7 @@
 ```
 
 ### 🤖 **AI Integration**
+
 ```bash
 🧠 Google Genkit               # AI development framework
 🤖 Gemini 2.0 Flash           # Latest language model
@@ -121,6 +130,7 @@ src/
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - 📦 **Node.js** 18+ installed
 - 🔥 **Firebase** account and project
 - 🤖 **Google AI Studio** API key
@@ -176,6 +186,7 @@ npm start
 ## 🎯 Key Features Demo
 
 ### 🔐 Authentication Flow
+
 ```typescript
 // Multi-provider authentication with verification
 - Email/Password with email verification
@@ -185,6 +196,7 @@ npm start
 ```
 
 ### 💰 Coin Economy
+
 ```typescript
 // Smart economy system
 - Welcome bonus: 100 coins
@@ -194,6 +206,7 @@ npm start
 ```
 
 ### 🤖 AI Features
+
 ```typescript
 // Intelligent assistance
 - Context-aware chatbot
@@ -206,6 +219,7 @@ npm start
 ## 🗄️ Database Schema
 
 ### 👤 Users Collection
+
 ```typescript
 interface UserProfile {
   uid: string;
@@ -223,13 +237,14 @@ interface UserProfile {
 ```
 
 ### 📅 Sessions Collection
+
 ```typescript
 interface Session {
   id: string;
   menteeId: string;
   mentorId: string;
   skill: string;
-  status: 'pending' | 'accepted' | 'completed' | 'rejected';
+  status: "pending" | "accepted" | "completed" | "rejected";
   duration: number;
   cost: number;
   scheduledFor: Timestamp;
@@ -238,6 +253,7 @@ interface Session {
 ```
 
 ### ⭐ Reviews Collection
+
 ```typescript
 interface Review {
   id: string;
@@ -255,6 +271,7 @@ interface Review {
 ## 🛡️ Security Features
 
 ### 🔒 Firestore Security Rules
+
 ```javascript
 // Example security rules
 rules_version = '2';
@@ -266,11 +283,11 @@ service cloud.firestore {
       allow create: if request.auth.uid == userId;
       allow update: if request.auth.uid == userId || isAdmin();
     }
-    
+
     // Sessions visible only to participants
     match /sessions/{sessionId} {
       allow read: if request.auth.uid in [
-        resource.data.menteeId, 
+        resource.data.menteeId,
         resource.data.mentorId
       ] || isAdmin();
     }
@@ -283,12 +300,14 @@ service cloud.firestore {
 ## 🎨 UI Components
 
 ### 🧩 Component Library
+
 - **Radix UI**: Accessible, unstyled components
 - **Tailwind CSS**: Utility-first styling
 - **Framer Motion**: Smooth animations
 - **Lucide React**: Consistent iconography
 
 ### 🎭 Design System
+
 - **Modern**: Clean, minimalist interface
 - **Responsive**: Mobile-first design
 - **Accessible**: WCAG compliant
@@ -299,6 +318,7 @@ service cloud.firestore {
 ## 📊 Performance
 
 ### ⚡ Optimizations
+
 - **Next.js 15**: Latest performance features
 - **Server Components**: Reduced client bundle
 - **Image Optimization**: Automatic WebP conversion
@@ -306,6 +326,7 @@ service cloud.firestore {
 - **Bundle Analysis**: Optimized dependencies
 
 ### 📈 Metrics
+
 - **Lighthouse Score**: 90+ across all metrics
 - **Core Web Vitals**: Excellent ratings
 - **Bundle Size**: Optimized for fast loading
@@ -316,11 +337,13 @@ service cloud.firestore {
 ## 🚀 Deployment
 
 ### ☁️ Hosting Options
+
 - **Vercel**: Recommended for Next.js apps
 - **Render**: Full-stack deployment
 - **Firebase Hosting**: Native Firebase integration
 
 ### 🔄 CI/CD Pipeline
+
 ```bash
 # Automated deployment workflow
 git push → Build → Test → Deploy
@@ -339,6 +362,7 @@ We welcome contributions! Here's how to get started:
 5. 📝 **Submit** a pull request
 
 ### 📋 Development Guidelines
+
 - Follow TypeScript best practices
 - Use conventional commit messages
 - Add tests for new features
@@ -353,6 +377,7 @@ We welcome contributions! Here's how to get started:
 SkillSwap is configured for easy deployment to Render:
 
 1. **📁 Push to GitHub**:
+
    ```bash
    git add .
    git commit -m "Ready for deployment"
@@ -360,11 +385,13 @@ SkillSwap is configured for easy deployment to Render:
    ```
 
 2. **🔗 Connect to Render**:
+
    - Go to [render.com](https://render.com)
    - Create new Web Service
    - Connect your GitHub repository
 
 3. **⚙️ Configuration**:
+
    - Build Command: `npm install && npm run build`
    - Start Command: `npm start`
    - Environment: Node.js
@@ -376,12 +403,15 @@ SkillSwap is configured for easy deployment to Render:
    - See `DEPLOYMENT.md` for complete list
 
 ### 🌟 Live Demo
+
 **🔗 [View Live Application](https://skillswap.onrender.com)**
 
 ### 📖 Complete Deployment Guide
+
 For detailed deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ### ☁️ Alternative Platforms
+
 - **Vercel**: `vercel --prod`
 - **Netlify**: `netlify deploy --prod`
 - **Firebase Hosting**: `firebase deploy`
